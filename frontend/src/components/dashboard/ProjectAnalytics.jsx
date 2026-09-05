@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -32,27 +32,7 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
   const [analytics, setAnalytics] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (projectId) {
-      fetchAnalytics();
-    }
-  }, [projectId]);
-
-  const fetchAnalytics = async () => {
-    setLoading(true);
-    try {
-      const response = await dashboardAPI.getProjectSummary(projectId);
-      setAnalytics(response.data);
-    } catch (error) {
-      console.error('Error fetching analytics:', error);
-      // Use local data if API fails
-      generateLocalAnalytics();
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const generateLocalAnalytics = () => {
+  const generateLocalAnalytics = useCallback(() => {
     const totalTasks = tasks.length;
     const completedTasks = tasks.filter(t => t.status === 'DONE').length;
     const inProgressTasks = tasks.filter(t => t.status === 'IN_PROGRESS').length;
@@ -64,7 +44,27 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
       pendingTasks: totalTasks - completedTasks,
       completionRate: totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0,
     });
-  };
+  }, [tasks]);
+
+  const fetchAnalytics = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await dashboardAPI.getProjectSummary(projectId);
+      setAnalytics(response.data);
+    } catch (error) {
+      console.error('Error fetching analytics:', error);
+      // Use local data if API fails
+      generateLocalAnalytics();
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId, generateLocalAnalytics]);
+
+  useEffect(() => {
+    if (projectId) {
+      fetchAnalytics();
+    }
+  }, [projectId, fetchAnalytics]);
 
   const getTaskStatusData = () => {
     const statusCounts = {

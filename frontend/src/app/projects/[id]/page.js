@@ -1,12 +1,24 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
-import KanbanBoard from '@/components/tasks/KanbanBoard';
 import TaskModal from '@/components/tasks/TaskModal';
-import ProjectAnalytics from '@/components/dashboard/ProjectAnalytics';
+
+// @dnd-kit and recharts are only needed once a user is actually looking at this
+// project's Board/Analytics tab — code-split them out of the initial bundle
+// instead of shipping both on every page load (was ~180kB of unused JS on
+// first paint; the tab content isn't needed until the user picks a tab).
+const KanbanBoard = dynamic(() => import('@/components/tasks/KanbanBoard'), {
+  ssr: false,
+  loading: () => <div className="py-12 text-center text-muted-foreground">Loading board…</div>,
+});
+const ProjectAnalytics = dynamic(() => import('@/components/dashboard/ProjectAnalytics'), {
+  ssr: false,
+  loading: () => <div className="py-12 text-center text-muted-foreground">Loading analytics…</div>,
+});
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -42,16 +54,7 @@ export default function ProjectDetailPage() {
   const [editProjectData, setEditProjectData] = useState({ name: '', description: '' });
   const [updatingProject, setUpdatingProject] = useState(false);
 
-  useEffect(() => {
-    if (!projectId) {
-      toast.error('Invalid project URL');
-      router.push('/projects');
-      return;
-    }
-    fetchProjectData();
-  }, [projectId]);
-
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       const projectResponse = await projectsAPI.getById(projectId);
       setProject(projectResponse.data);
@@ -73,7 +76,16 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, router]);
+
+  useEffect(() => {
+    if (!projectId) {
+      toast.error('Invalid project URL');
+      router.push('/projects');
+      return;
+    }
+    fetchProjectData();
+  }, [projectId, router, fetchProjectData]);
 
   const handleCreateTask = async (taskData) => {
     setTaskLoading(true);
