@@ -155,6 +155,22 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
   const upcomingTasks = getUpcomingTasks();
   const trendData = getCompletionTrend();
 
+  // Recharts v3's ResponsiveContainer measures its parent via ResizeObserver on
+  // first mount. This component only mounts once the (lazily-loaded) Analytics
+  // tab is first opened — at that exact moment the outer tab panel is still
+  // mid-transition/swapping in from its loading fallback, so ResponsiveContainer
+  // takes its very first measurement against a container that hasn't settled
+  // into its final layout yet and gets 0 width, rendering nothing. Nothing
+  // triggers a re-measure afterward (ResizeObserver only fires on further size
+  // *changes*, and none occur), so the chart stays blank permanently.
+  // Fix: don't mount the charts until one paint cycle after this component
+  // itself has mounted, by which point the surrounding layout is stable.
+  const [chartsReady, setChartsReady] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => requestAnimationFrame(() => setChartsReady(true)));
+    return () => cancelAnimationFrame(id);
+  }, []);
+
   const completionRate = tasks.length > 0 
     ? Math.round((tasks.filter(t => t.status === 'DONE').length / tasks.length) * 100)
     : 0;
@@ -222,7 +238,18 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
         </Card>
       </div>
 
-      {/* Charts */}
+      {/* Charts — gated on chartsReady, see the comment above its definition */}
+      {!chartsReady ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {[0, 1].map((i) => (
+            <Card key={i}>
+              <CardContent className="flex h-[356px] items-center justify-center pt-6">
+                <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground/30 border-t-muted-foreground" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
       <Tabs defaultValue="status" className="space-y-4">
         <TabsList>
           <TabsTrigger value="status">Task Status</TabsTrigger>
@@ -369,6 +396,7 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
           </Card>
         </TabsContent>
       </Tabs>
+      )}
 
       {/* Insights */}
       <Card>
