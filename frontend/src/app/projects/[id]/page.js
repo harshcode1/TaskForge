@@ -495,6 +495,7 @@ export default function ProjectDetailPage() {
             onSave={handleTaskSave}
             task={editingTask}
             projectMembers={members.filter(member => member.role)}
+            projectName={project?.name}
             loading={taskLoading}
           />
 

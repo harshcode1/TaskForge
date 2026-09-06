@@ -25,6 +25,7 @@ import { dashboardAPI } from '@/services/api';
 import { toast } from 'react-hot-toast';
 import { TrendingUp, TrendingDown, Clock, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { CHART_COLORS, PRIORITY_CHART_COLORS, STATUS_CHART_COLORS } from '@/lib/task-ui';
+import AIProjectSummary from './AIProjectSummary';
 
 // Order matches getTaskStatusData()'s fixed key order (To Do / In Progress / Done)
 const STATUS_PIE_COLORS = [STATUS_CHART_COLORS.TODO, STATUS_CHART_COLORS.IN_PROGRESS, STATUS_CHART_COLORS.DONE];
@@ -201,6 +202,8 @@ export default function ProjectAnalytics({ projectId, tasks = [], members = [] }
 
   return (
     <div className="space-y-6">
+      <AIProjectSummary projectId={projectId} />
+
       {/* Key Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>

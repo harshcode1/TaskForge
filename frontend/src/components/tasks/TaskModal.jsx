@@ -7,6 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Sparkles, Loader2 } from 'lucide-react';
+import { useAIStatus } from '@/hooks/use-ai-status';
+import { aiAPI } from '@/services/api';
+import { toast } from 'react-hot-toast';
 
 export default function TaskModal({
   isOpen,
@@ -14,8 +18,11 @@ export default function TaskModal({
   onSave,
   task = null,
   projectMembers = [],
+  projectName = '',
   loading = false
 }) {
+  const aiEnabled = useAIStatus();
+  const [generating, setGenerating] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -78,6 +85,22 @@ export default function TaskModal({
     }));
   };
 
+  const handleGenerateDescription = async () => {
+    if (!formData.title.trim()) {
+      toast.error('Enter a title first — the description is generated from it');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await aiAPI.generateTaskDescription(formData.title, projectName);
+      handleChange('description', res.data.text);
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'AI generation failed');
+    } finally {
+      setGenerating(false);
+    }
+  };
+
   const validProjectMembers = projectMembers.filter(
     (member) => member.user?.email
   );
@@ -113,7 +136,22 @@ export default function TaskModal({
 
             {/* Description */}
             <div className="space-y-2">
-              <Label htmlFor="description">Description</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="description">Description</Label>
+                {aiEnabled && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 gap-1 px-2 text-xs text-primary hover:text-primary"
+                    onClick={handleGenerateDescription}
+                    disabled={generating}
+                  >
+                    {generating ? <Loader2 className="h-3 w-3 animate-spin" /> : <Sparkles className="h-3 w-3" />}
+                    Generate with AI
+                  </Button>
+                )}
+              </div>
               <Textarea
                 id="description"
                 placeholder="Enter task description"

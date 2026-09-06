@@ -91,5 +91,14 @@ export const usersAPI = {
   updateMe: (name) => api.put('/users/me', { name }),
 };
 
+// AI API — every call here can 503 if OPENAI_API_KEY isn't configured on the
+// backend; callers should check aiAPI.getStatus() once and hide the
+// affordance entirely rather than show a button that always fails.
+export const aiAPI = {
+  getStatus: () => api.get('/ai/status'),
+  generateTaskDescription: (title, projectName) => api.post('/ai/task-description', { title, projectName }),
+  getProjectSummary: (projectId) => api.get(`/ai/project-summary/${projectId}`),
+};
+
 export default api;
 

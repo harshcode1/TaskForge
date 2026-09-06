@@ -28,15 +28,24 @@ services:
     ports:
       - "6060:6060"
     environment:
+      # Without this, spring.profiles.active defaults to "dev" (see
+      # application.properties), and application-dev.properties hardcodes
+      # spring.datasource.url to localhost:3306 — which doesn't resolve to
+      # anything inside this container, silently ignoring the
+      # SPRING_DATASOURCE_URL below entirely. Found this reviewing the file,
+      # not by running it (no Docker on the machine this was built on).
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/projectmanagementdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
       DB_USERNAME: ${DB_USERNAME:-taskforge}
       DB_PASSWORD: ${DB_PASSWORD:-taskforge123}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-min-32-chars}
       JWT_EXPIRATION: ${JWT_EXPIRATION:-86400000}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:3000}
       MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
     depends_on:
       db:
         condition: service_healthy
