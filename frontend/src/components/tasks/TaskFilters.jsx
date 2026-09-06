@@ -74,20 +74,20 @@ export default function TaskFilters({
             <div className="text-2xl font-bold">{taskCounts.total}</div>
             <div className="text-sm text-muted-foreground">Total</div>
           </div>
-          <div className="text-center p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
-            <div className="text-2xl font-bold text-gray-600">{taskCounts.todo}</div>
+          <div className="text-center p-2 bg-muted rounded-lg">
+            <div className="text-2xl font-bold text-muted-foreground">{taskCounts.todo}</div>
             <div className="text-sm text-muted-foreground">To Do</div>
           </div>
-          <div className="text-center p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{taskCounts.inProgress}</div>
+          <div className="text-center p-2 rounded-lg border border-[#6ea8fe]/30 bg-[#6ea8fe]/10">
+            <div className="text-2xl font-bold text-[#6ea8fe]">{taskCounts.inProgress}</div>
             <div className="text-sm text-muted-foreground">In Progress</div>
           </div>
-          <div className="text-center p-2 bg-amber-100 dark:bg-amber-900 rounded-lg">
-            <div className="text-2xl font-bold text-amber-600">{taskCounts.pending}</div>
+          <div className="text-center p-2 rounded-lg border border-primary/30 bg-primary/10">
+            <div className="text-2xl font-bold text-primary">{taskCounts.pending}</div>
             <div className="text-sm text-muted-foreground">Pending</div>
           </div>
-          <div className="text-center p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{taskCounts.done}</div>
+          <div className="text-center p-2 rounded-lg border border-[#5fd39a]/30 bg-[#5fd39a]/10">
+            <div className="text-2xl font-bold text-[#5fd39a]">{taskCounts.done}</div>
             <div className="text-sm text-muted-foreground">Done</div>
           </div>
         </div>

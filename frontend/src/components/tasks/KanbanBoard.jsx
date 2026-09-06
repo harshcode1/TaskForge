@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MoreHorizontal, Calendar, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { priorityBadgeClass, priorityLabel, statusDotClass } from '@/lib/task-ui';
 
 const TaskCard = ({ task, onEdit, onDelete }) => {
   const {
@@ -28,19 +29,6 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
     opacity: isDragging ? 0.5 : 1,
   };
 
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
-  };
-
   const getInitials = (name) => {
     return name
       ?.split(' ')
@@ -55,7 +43,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      className="cursor-grab border-border/80 active:cursor-grabbing hover:border-primary/40 transition-colors"
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
@@ -89,9 +77,9 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             {task.priority && (
-              <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
-                {task.priority}
-              </Badge>
+              <span className={priorityBadgeClass(task.priority)}>
+                {priorityLabel(task.priority)}
+              </span>
             )}
             {task.dueDate && (
               <div className="flex items-center text-xs text-muted-foreground">
@@ -120,28 +108,14 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
 const Column = ({ title, tasks, status, onEdit, onDelete }) => {
   const taskIds = tasks.map(task => task.id);
 
-  const getColumnColor = (status) => {
-    switch (status) {
-      case 'TODO':
-        return 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800';
-      case 'IN_PROGRESS':
-        return 'border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900';
-      case 'PENDING':
-        return 'border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900';
-      case 'DONE':
-        return 'border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900';
-      default:
-        return 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800';
-    }
-  };
-
   return (
-    <div className={`flex flex-col h-full border-2 border-dashed rounded-lg p-4 ${getColumnColor(status)}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wide">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-secondary/30 p-4">
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className={statusDotClass(status)} />
           {title}
         </h3>
-        <Badge variant="secondary" className="text-xs">
+        <Badge variant="secondary" className="font-mono text-xs">
           {tasks.length}
         </Badge>
       </div>

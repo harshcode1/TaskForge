@@ -6,7 +6,9 @@ import { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import { CheckCircle, Users, Calendar, BarChart3 } from 'lucide-react';
+import { CheckCircle, Users, Calendar, BarChart3, Github } from 'lucide-react';
+
+const REPO_URL = 'https://github.com/harshcode1/TaskForge';
 
 export default function HomePage() {
   const { isAuthenticated, loading } = useAuth();
@@ -33,16 +35,25 @@ export default function HomePage() {
   return (
     <div className="min-h-screen bg-background">
       {/* Navigation */}
-      <nav className="border-b">
+      <nav className="border-b border-border">
         <div className="container mx-auto px-4">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center space-x-2">
               <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-                <span className="text-primary-foreground font-bold text-sm">TF</span>
+                <span className="text-primary-foreground font-mono font-bold text-sm">TF</span>
               </div>
-              <span className="font-bold text-xl">TaskForge</span>
+              <span className="font-mono font-bold text-xl">TaskForge</span>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <a
+                href={REPO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hidden sm:inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <Github className="h-4 w-4" />
+                Source
+              </a>
               <Link href="/login">
                 <Button variant="ghost">Login</Button>
               </Link>
@@ -55,27 +66,32 @@ export default function HomePage() {
       </nav>
 
       {/* Hero Section */}
-      <section className="py-20 px-4">
-        <div className="container mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Project Management
-            <span className="text-primary block">Made Simple</span>
+      <section className="relative overflow-hidden py-24 px-4">
+        <div className="blueprint-grid pointer-events-none absolute inset-0 [mask-image:radial-gradient(ellipse_60%_60%_at_50%_0%,black,transparent)]" />
+        <div className="container relative mx-auto text-center">
+          <p className="font-mono text-xs font-semibold uppercase tracking-widest text-primary mb-4">
+            Open source · Self-hosted
+          </p>
+          <h1 className="font-mono text-4xl md:text-6xl font-bold mb-6 tracking-tight">
+            A Jira-style tracker
+            <span className="text-primary block">you actually control.</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            TaskForge is a self-hosted, enterprise-grade project management tool 
-            that helps teams collaborate, track progress, and deliver results.
+            Kanban boards, role-based projects, and task tracking — a real Spring Boot API
+            behind a Next.js frontend, backed by a real test suite. Run it with one Docker command.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/register">
               <Button size="lg" className="w-full sm:w-auto">
-                Start Free Trial
+                Create an account
               </Button>
             </Link>
-            <Link href="/login">
+            <a href={REPO_URL} target="_blank" rel="noopener noreferrer">
               <Button variant="outline" size="lg" className="w-full sm:w-auto">
-                Sign In
+                <Github className="h-4 w-4" />
+                View source
               </Button>
-            </Link>
+            </a>
           </div>
         </div>
       </section>
@@ -83,7 +99,7 @@ export default function HomePage() {
       {/* Features Section */}
       <section className="py-20 px-4 bg-muted/50">
         <div className="container mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">
+          <h2 className="font-mono text-3xl font-bold text-center mb-12">
             Everything you need to manage projects
           </h2>
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -94,7 +110,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Create, assign, and track tasks with powerful Kanban boards and customizable workflows.
+                  Create, assign, and track tasks with a drag-and-drop Kanban board across four status lanes.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -106,7 +122,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Invite team members, assign roles, and collaborate seamlessly with real-time updates.
+                  Invite members, assign project roles, and discuss work in threaded task comments.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -118,7 +134,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Plan projects with due dates, milestones, and timeline views to stay on track.
+                  Due dates, priorities, and automatic overdue detection, with daily email reminders.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -130,7 +146,7 @@ export default function HomePage() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Get insights into team performance and project progress with detailed analytics.
+                  Completion rate, status/priority breakdowns, and per-assignee workload, per project.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -141,27 +157,37 @@ export default function HomePage() {
       {/* CTA Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center">
-          <h2 className="text-3xl font-bold mb-6">
-            Ready to transform your project management?
+          <h2 className="font-mono text-3xl font-bold mb-6">
+            Self-host it, or just try it out.
           </h2>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of teams who trust TaskForge to deliver their projects on time and within budget.
+            Spin up the whole stack — MySQL, the Spring Boot API, and this frontend — with a single
+            <code className="mx-1.5 rounded bg-muted px-1.5 py-0.5 font-mono text-base">docker compose up</code>
+            or create an account here to try it live.
           </p>
           <Link href="/register">
             <Button size="lg">
-              Get Started Today
+              Get Started
             </Button>
           </Link>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8 px-4">
-        <div className="container mx-auto text-center text-muted-foreground">
-          <p>&copy; 2024 TaskForge. All rights reserved.</p>
+      <footer className="border-t border-border py-8 px-4">
+        <div className="container mx-auto flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-muted-foreground">
+          <p>&copy; {new Date().getFullYear()} TaskForge. Built by <a href="https://github.com/harshcode1" target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-foreground">Harsh Soni</a>.</p>
+          <a
+            href={REPO_URL}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 hover:text-foreground transition-colors"
+          >
+            <Github className="h-4 w-4" />
+            github.com/harshcode1/TaskForge
+          </a>
         </div>
       </footer>
     </div>
   );
 }
-

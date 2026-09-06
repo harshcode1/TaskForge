@@ -35,9 +35,9 @@ export default function Navbar() {
           {/* Logo */}
           <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2">
             <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">TF</span>
+              <span className="text-primary-foreground font-mono font-bold text-sm">TF</span>
             </div>
-            <span className="font-bold text-xl">TaskForge</span>
+            <span className="font-mono font-bold text-xl">TaskForge</span>
           </Link>
 
           {/* Navigation Links */}

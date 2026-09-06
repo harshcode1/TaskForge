@@ -231,13 +231,13 @@ export default function ProjectDetailPage() {
   const getRoleColor = (role) => {
     switch (role) {
       case 'ADMIN':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+        return 'border-primary/30 bg-primary/10 text-primary';
       case 'MANAGER':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+        return 'border-[#6ea8fe]/30 bg-[#6ea8fe]/10 text-[#6ea8fe]';
       case 'MEMBER':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+        return 'border-border text-muted-foreground';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+        return 'border-border text-muted-foreground';
     }
   };
 
@@ -385,7 +385,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">In Progress</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
+                <div className="text-2xl font-bold text-[#6ea8fe]">{stats.inProgress}</div>
               </CardContent>
             </Card>
             <Card>
@@ -393,7 +393,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">Pending</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
+                <div className="text-2xl font-bold text-primary">{stats.pending}</div>
               </CardContent>
             </Card>
             <Card>
@@ -401,7 +401,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">Completed</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+                <div className="text-2xl font-bold text-[#5fd39a]">{stats.completed}</div>
               </CardContent>
             </Card>
           </div>

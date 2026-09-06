@@ -6,11 +6,11 @@ import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { projectsAPI, tasksAPI, dashboardAPI } from '@/services/api';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { Plus, FolderOpen, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
+import { statusBadgeClass, statusLabel } from '@/lib/task-ui';
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -71,21 +71,6 @@ export default function DashboardPage() {
       toast.error('Failed to load dashboard data');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'TODO':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'PENDING':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300';
-      case 'DONE':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
@@ -168,20 +153,20 @@ export default function DashboardPage() {
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-green-600" />
+                <CheckCircle className="h-4 w-4 text-[#5fd39a]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.completedTasks}</div>
+                <div className="text-2xl font-bold text-[#5fd39a]">{stats.completedTasks}</div>
               </CardContent>
             </Card>
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-                <AlertCircle className="h-4 w-4 text-blue-600" />
+                <AlertCircle className="h-4 w-4 text-[#6ea8fe]" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.inProgressTasks}</div>
+                <div className="text-2xl font-bold text-[#6ea8fe]">{stats.inProgressTasks}</div>
               </CardContent>
             </Card>
           </div>
@@ -258,10 +243,10 @@ export default function DashboardPage() {
                           <h4 className="font-medium truncate">{task.title}</h4>
                           <p className="text-sm text-muted-foreground truncate">{task.description}</p>
                         </div>
-                        <Badge className={`ml-2 flex items-center gap-1 ${getStatusColor(task.status)}`}>
+                        <span className={`ml-2 ${statusBadgeClass(task.status)}`}>
                           {getStatusIcon(task.status)}
-                          <span>{task.status.replace('_', ' ')}</span>
-                        </Badge>
+                          <span>{statusLabel(task.status)}</span>
+                        </span>
                       </div>
                     ))}
                   </div>

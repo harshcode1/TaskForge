@@ -55,17 +55,17 @@ class NotificationService {
       switch (type) {
         case NotificationTypes.SUCCESS:
         case NotificationTypes.TASK_COMPLETED:
-          return <CheckCircle className="h-4 w-4 text-green-600" />;
+          return <CheckCircle className="h-4 w-4 text-[#5fd39a]" />;
         case NotificationTypes.ERROR:
-          return <AlertCircle className="h-4 w-4 text-red-600" />;
+          return <AlertCircle className="h-4 w-4 text-destructive" />;
         case NotificationTypes.WARNING:
         case NotificationTypes.DEADLINE_REMINDER:
-          return <AlertCircle className="h-4 w-4 text-yellow-600" />;
+          return <AlertCircle className="h-4 w-4 text-primary" />;
         case NotificationTypes.TASK_ASSIGNED:
         case NotificationTypes.PROJECT_INVITE:
-          return <Bell className="h-4 w-4 text-blue-600" />;
+          return <Bell className="h-4 w-4 text-[#6ea8fe]" />;
         default:
-          return <Info className="h-4 w-4 text-blue-600" />;
+          return <Info className="h-4 w-4 text-[#6ea8fe]" />;
       }
     };
 
