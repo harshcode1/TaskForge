@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
-import { Moon, Sun, LogOut, User, Settings, ClipboardList } from 'lucide-react';
+import { Moon, Sun, LogOut, User, Settings, ClipboardList, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationCenter from './NotificationCenter';
@@ -63,6 +63,24 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-4">
+            {/* Command palette entry point — Cmd+K works from anywhere, but a
+                keyboard-only shortcut with no visible affordance is a
+                discoverability dead end, so this is a real clickable button too. */}
+            {isAuthenticated && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex items-center gap-2 text-muted-foreground font-normal"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Search</span>
+                <kbd className="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            )}
+
             {/* Theme Toggle */}
             <Button
               variant="ghost"
