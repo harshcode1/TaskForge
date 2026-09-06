@@ -7,6 +7,7 @@ import com.projectmgmttool.backend.repository.ProjectRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -41,6 +42,12 @@ public class ProjectService {
         return projectRepository.findAllProjectsVisibleToUser(user.getId());
     }
 
+    // @Transactional is required here: open-in-view is off, so the session from
+    // findById() closes as soon as it returns. Without this, accessing the lazy
+    // `members` collection below throws LazyInitializationException — this was a
+    // live 500 on GET /api/projects/{id} until this was added (see also the same
+    // pattern in CommentService.getCommentsForTask).
+    @Transactional(readOnly = true)
     public Project getProjectById(UUID projectId, String requesterEmail) {
         Project project = projectRepository.findById(projectId)
                 .orElseThrow(() -> new CustomApiException("Project not found", 404));

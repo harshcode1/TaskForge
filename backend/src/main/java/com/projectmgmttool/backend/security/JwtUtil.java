@@ -17,7 +17,11 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret:your-secure-jwt-secret-key-should-be-longer-than-this}")
+    // No fallback here on purpose — application-dev.properties supplies a dev-only
+    // value locally, and application-prod.properties has none, so a prod deploy
+    // without JWT_SECRET set fails fast at startup instead of running with a
+    // secret anyone can read on GitHub.
+    @Value("${jwt.secret}")
     private String secretKey;
 
     @Value("${jwt.expiration:86400000}")

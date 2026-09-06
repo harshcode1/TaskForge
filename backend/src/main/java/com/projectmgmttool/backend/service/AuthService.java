@@ -2,7 +2,9 @@ package com.projectmgmttool.backend.service;
 
 import com.projectmgmttool.backend.dto.AuthRequest;
 import com.projectmgmttool.backend.dto.AuthResponse;
+import com.projectmgmttool.backend.dto.ProfileDTO;
 import com.projectmgmttool.backend.dto.RegisterRequest;
+import com.projectmgmttool.backend.dto.UpdateProfileRequest;
 import com.projectmgmttool.backend.exception.CustomApiException;
 import com.projectmgmttool.backend.repository.UserRepository;
 import com.projectmgmttool.backend.security.JwtUtil;
@@ -69,5 +71,19 @@ public class AuthService {
                 user.getEmail(),
                 user.getRole()
         );
+    }
+
+    public ProfileDTO getProfile(String email) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomApiException("User not found", 404));
+        return new ProfileDTO(user.getId(), user.getName(), user.getEmail(), user.getRole(), user.getCreatedAt());
+    }
+
+    public ProfileDTO updateProfile(String email, UpdateProfileRequest request) {
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new CustomApiException("User not found", 404));
+        user.setName(request.getName());
+        User saved = userRepository.save(user);
+        return new ProfileDTO(saved.getId(), saved.getName(), saved.getEmail(), saved.getRole(), saved.getCreatedAt());
     }
 }

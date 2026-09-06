@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { DndContext, DragOverlay, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -11,8 +12,9 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { MoreHorizontal, Calendar, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { priorityBadgeClass, priorityLabel, statusDotClass } from '@/lib/task-ui';
 
-const TaskCard = ({ task, onEdit, onDelete }) => {
+const TaskCard = ({ task, onEdit, onDelete, onView }) => {
   const {
     attributes,
     listeners,
@@ -26,19 +28,6 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isDragging ? 0.5 : 1,
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
   };
 
   const getInitials = (name) => {
@@ -55,7 +44,8 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
+      onClick={() => onView?.(task)}
+      className="cursor-grab border-border/80 active:cursor-grabbing hover:border-primary/40 hover:-translate-y-0.5 transition-[border-color,transform] duration-200"
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
@@ -64,11 +54,17 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
           </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              {/* Stop the click from also bubbling up to the card's own
+                  onClick (which opens the detail modal) — the "..." menu
+                  needs to open on its own, not underneath another modal. */}
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            {/* Radix portals this content, but React's synthetic events still
+                bubble through the component tree to the Card's onClick — this
+                stops Edit/Delete clicks from also opening the detail modal. */}
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem onClick={() => onEdit(task)}>
                 Edit
               </DropdownMenuItem>
@@ -89,9 +85,9 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             {task.priority && (
-              <Badge className={`text-xs ${getPriorityColor(task.priority)}`}>
-                {task.priority}
-              </Badge>
+              <span className={priorityBadgeClass(task.priority)}>
+                {priorityLabel(task.priority)}
+              </span>
             )}
             {task.dueDate && (
               <div className="flex items-center text-xs text-muted-foreground">
@@ -117,31 +113,22 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
   );
 };
 
-const Column = ({ title, tasks, status, onEdit, onDelete }) => {
+const Column = ({ title, tasks, status, onEdit, onDelete, onView, index = 0 }) => {
   const taskIds = tasks.map(task => task.id);
 
-  const getColumnColor = (status) => {
-    switch (status) {
-      case 'TODO':
-        return 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800';
-      case 'IN_PROGRESS':
-        return 'border-blue-200 bg-blue-50 dark:border-blue-700 dark:bg-blue-900';
-      case 'PENDING':
-        return 'border-amber-200 bg-amber-50 dark:border-amber-700 dark:bg-amber-900';
-      case 'DONE':
-        return 'border-green-200 bg-green-50 dark:border-green-700 dark:bg-green-900';
-      default:
-        return 'border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800';
-    }
-  };
-
   return (
-    <div className={`flex flex-col h-full border-2 border-dashed rounded-lg p-4 ${getColumnColor(status)}`}>
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-sm uppercase tracking-wide">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06 }}
+      className="flex h-full flex-col rounded-lg border border-border bg-secondary/30 p-4"
+    >
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          <span className={statusDotClass(status)} />
           {title}
         </h3>
-        <Badge variant="secondary" className="text-xs">
+        <Badge variant="secondary" className="font-mono text-xs">
           {tasks.length}
         </Badge>
       </div>
@@ -154,19 +141,28 @@ const Column = ({ title, tasks, status, onEdit, onDelete }) => {
               task={task}
               onEdit={onEdit}
               onDelete={onDelete}
+              onView={onView}
             />
           ))}
         </div>
       </SortableContext>
-    </div>
+    </motion.div>
   );
 };
 
-export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDelete }) {
+export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDelete, onTaskView }) {
   const [activeTask, setActiveTask] = useState(null);
   
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    // Without an activation constraint, PointerSensor claims every pointerdown
+    // on a sortable card as a potential drag from pixel zero — which also
+    // swallows the native click event, so clicking a card to open its detail
+    // view (onView, wired in the Card below) silently did nothing. Requiring
+    // 8px of movement before a drag is recognized is dnd-kit's own documented
+    // fix for "click and drag need to coexist on the same element".
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -234,14 +230,16 @@ export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDel
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 h-[600px]">
-        {columns.map((column) => (
+        {columns.map((column, index) => (
           <SortableContext key={column.id} items={[column.id]}>
             <Column
               title={column.title}
               tasks={getTasksByStatus(column.status)}
               status={column.status}
+              index={index}
               onEdit={onTaskEdit}
               onDelete={onTaskDelete}
+              onView={onTaskView}
             />
           </SortableContext>
         ))}

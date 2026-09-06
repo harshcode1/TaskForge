@@ -107,7 +107,7 @@ public class TaskService {
         return taskRepository.save(task);
     }
 
-    public void deleteTask(UUID taskId, String userEmail) {
+    public Task deleteTask(UUID taskId, String userEmail) {
         Task task = taskRepository.findById(taskId)
                 .orElseThrow(() -> new CustomApiException("Task not found", 404));
 
@@ -127,5 +127,6 @@ public class TaskService {
         }
 
         taskRepository.delete(task);
+        return task;
     }
 }

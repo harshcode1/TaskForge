@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { tasksAPI } from '@/services/api';
+import { priorityBadgeClass, priorityLabel, statusBadgeClass, statusLabel } from '@/lib/task-ui';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import {
@@ -53,25 +54,6 @@ export default function MyTasksPage() {
   const filteredTasks = activeTab === 'ALL'
     ? tasks
     : tasks.filter(t => t.status === activeTab);
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'TODO': return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-      case 'IN_PROGRESS': return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'PENDING': return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300';
-      case 'DONE': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH': return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'MEDIUM': return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'LOW': return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default: return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
-  };
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -128,25 +110,25 @@ export default function MyTasksPage() {
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <div className="text-2xl font-bold text-gray-600">{countByStatus('TODO')}</div>
+                <div className="text-2xl font-bold text-muted-foreground">{countByStatus('TODO')}</div>
                 <div className="text-sm text-muted-foreground">To Do</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">{countByStatus('IN_PROGRESS')}</div>
+                <div className="text-2xl font-bold text-[#6ea8fe]">{countByStatus('IN_PROGRESS')}</div>
                 <div className="text-sm text-muted-foreground">In Progress</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <div className="text-2xl font-bold text-amber-600">{countByStatus('PENDING')}</div>
+                <div className="text-2xl font-bold text-primary">{countByStatus('PENDING')}</div>
                 <div className="text-sm text-muted-foreground">Pending</div>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="pt-4 text-center">
-                <div className="text-2xl font-bold text-green-600">{countByStatus('DONE')}</div>
+                <div className="text-2xl font-bold text-[#5fd39a]">{countByStatus('DONE')}</div>
                 <div className="text-sm text-muted-foreground">Done</div>
               </CardContent>
             </Card>
@@ -196,18 +178,18 @@ export default function MyTasksPage() {
               {filteredTasks.map((task) => {
                 const overdue = isOverdue(task.dueDate, task.status);
                 return (
-                  <Card key={task.id} className={`hover:shadow-md transition-shadow ${overdue ? 'border-red-200 dark:border-red-800' : ''}`}>
+                  <Card key={task.id} className={`transition-colors hover:border-primary/40 ${overdue ? 'border-destructive/40' : ''}`}>
                     <CardContent className="py-4">
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap mb-1">
-                            <h3 className={`font-medium ${overdue ? 'text-red-600 dark:text-red-400' : ''}`}>
+                            <h3 className={`font-medium ${overdue ? 'text-destructive' : ''}`}>
                               {task.title}
                             </h3>
                             {overdue && (
-                              <Badge className="bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300 text-xs">
+                              <span className="priority-badge-high">
                                 Overdue
-                              </Badge>
+                              </span>
                             )}
                           </div>
                           {task.description && (
@@ -217,7 +199,7 @@ export default function MyTasksPage() {
                           )}
                           <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
                             {task.dueDate && (
-                              <span className={`flex items-center gap-1 ${overdue ? 'text-red-600 dark:text-red-400 font-medium' : ''}`}>
+                              <span className={`flex items-center gap-1 ${overdue ? 'text-destructive font-medium' : ''}`}>
                                 <Calendar className="h-3 w-3" />
                                 Due {new Date(task.dueDate).toLocaleDateString()}
                               </span>
@@ -228,17 +210,17 @@ export default function MyTasksPage() {
                         <div className="flex items-center gap-2 flex-shrink-0 flex-wrap justify-end">
                           {/* Priority Badge */}
                           {task.priority && (
-                            <Badge className={`flex items-center gap-1 text-xs ${getPriorityColor(task.priority)}`}>
+                            <span className={priorityBadgeClass(task.priority)}>
                               <Flag className="h-3 w-3" />
-                              {task.priority}
-                            </Badge>
+                              {priorityLabel(task.priority)}
+                            </span>
                           )}
 
                           {/* Status Badge */}
-                          <Badge className={`flex items-center gap-1 text-xs ${getStatusColor(task.status)}`}>
+                          <span className={statusBadgeClass(task.status)}>
                             {getStatusIcon(task.status)}
-                            {task.status.replace('_', ' ')}
-                          </Badge>
+                            {statusLabel(task.status)}
+                          </span>
 
                           {/* View in Project */}
                           {task.projectId && (

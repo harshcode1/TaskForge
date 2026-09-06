@@ -142,6 +142,8 @@ describe('KanbanBoard', () => {
     );
 
     expect(screen.getByText('Fix the login bug')).toBeInTheDocument();
-    expect(screen.getByText('HIGH')).toBeInTheDocument();
+    // Priority badges now render a friendlier label ("High") instead of the
+    // raw enum value ("HIGH") — see src/lib/task-ui.js.
+    expect(screen.getByText('High')).toBeInTheDocument();
   });
 });

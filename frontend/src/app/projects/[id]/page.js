@@ -1,12 +1,25 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
-import KanbanBoard from '@/components/tasks/KanbanBoard';
 import TaskModal from '@/components/tasks/TaskModal';
-import ProjectAnalytics from '@/components/dashboard/ProjectAnalytics';
+import TaskDetailModal from '@/components/tasks/TaskDetailModal';
+
+// @dnd-kit and recharts are only needed once a user is actually looking at this
+// project's Board/Analytics tab — code-split them out of the initial bundle
+// instead of shipping both on every page load (was ~180kB of unused JS on
+// first paint; the tab content isn't needed until the user picks a tab).
+const KanbanBoard = dynamic(() => import('@/components/tasks/KanbanBoard'), {
+  ssr: false,
+  loading: () => <div className="py-12 text-center text-muted-foreground">Loading board…</div>,
+});
+const ProjectAnalytics = dynamic(() => import('@/components/dashboard/ProjectAnalytics'), {
+  ssr: false,
+  loading: () => <div className="py-12 text-center text-muted-foreground">Loading analytics…</div>,
+});
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -17,6 +30,9 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { projectsAPI, tasksAPI, projectMembersAPI } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjectSocket } from '@/hooks/use-project-socket';
+import ActivityFeed from '@/components/projects/ActivityFeed';
 import { toast } from 'react-hot-toast';
 import { Plus, Users, UserPlus, ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
@@ -24,6 +40,7 @@ import Link from 'next/link';
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const projectId = params.id;
 
   const [project, setProject] = useState(null);
@@ -32,6 +49,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [viewingTask, setViewingTask] = useState(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteData, setInviteData] = useState({ email: '', role: 'MEMBER' });
   const [inviting, setInviting] = useState(false);
@@ -42,16 +60,7 @@ export default function ProjectDetailPage() {
   const [editProjectData, setEditProjectData] = useState({ name: '', description: '' });
   const [updatingProject, setUpdatingProject] = useState(false);
 
-  useEffect(() => {
-    if (!projectId) {
-      toast.error('Invalid project URL');
-      router.push('/projects');
-      return;
-    }
-    fetchProjectData();
-  }, [projectId]);
-
-  const fetchProjectData = async () => {
+  const fetchProjectData = useCallback(async () => {
     try {
       const projectResponse = await projectsAPI.getById(projectId);
       setProject(projectResponse.data);
@@ -73,7 +82,34 @@ export default function ProjectDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [projectId, router]);
+
+  useEffect(() => {
+    if (!projectId) {
+      toast.error('Invalid project URL');
+      router.push('/projects');
+      return;
+    }
+    fetchProjectData();
+  }, [projectId, router, fetchProjectData]);
+
+  // Bumped on every live task event (ours or a teammate's) so the Activity
+  // tab refetches its persisted history without the user needing to leave
+  // and come back to the tab.
+  const [activityRefreshToken, setActivityRefreshToken] = useState(0);
+
+  // Live board updates — another user creating/editing/deleting a task on
+  // this project shows up here without a manual refresh. Skip our own
+  // actions: the REST call that caused them already updated local state,
+  // so re-handling our own broadcast would just be a redundant refetch.
+  const isLive = useProjectSocket(projectId, (event) => {
+    setActivityRefreshToken((n) => n + 1);
+    if (event.actorEmail === user?.email) return;
+
+    const verb = event.type === 'CREATED' ? 'created' : event.type === 'DELETED' ? 'deleted' : 'updated';
+    toast(`${event.actorName} ${verb} "${event.taskTitle}"`, { icon: '🔄' });
+    fetchProjectData();
+  });
 
   const handleCreateTask = async (taskData) => {
     setTaskLoading(true);
@@ -129,6 +165,10 @@ export default function ProjectDetailPage() {
   const handleTaskEdit = (task) => {
     setEditingTask(task);
     setTaskModalOpen(true);
+  };
+
+  const handleTaskView = (task) => {
+    setViewingTask(task);
   };
 
   const handleTaskSave = (taskData) => {
@@ -219,13 +259,13 @@ export default function ProjectDetailPage() {
   const getRoleColor = (role) => {
     switch (role) {
       case 'ADMIN':
-        return 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300';
+        return 'border-primary/30 bg-primary/10 text-primary';
       case 'MANAGER':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
+        return 'border-[#6ea8fe]/30 bg-[#6ea8fe]/10 text-[#6ea8fe]';
       case 'MEMBER':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
+        return 'border-border text-muted-foreground';
       default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
+        return 'border-border text-muted-foreground';
     }
   };
 
@@ -277,7 +317,18 @@ export default function ProjectDetailPage() {
               </Button>
             </Link>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold">{project.name}</h1>
+                {isLive && (
+                  <span
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#5fd39a] border border-[#5fd39a]/30 bg-[#5fd39a]/10 rounded-full px-2 py-0.5"
+                    title="Live updates connected — you'll see teammates' changes in real time"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5fd39a] animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </div>
               <p className="text-muted-foreground mt-1">
                 {project.description || 'No description provided'}
               </p>
@@ -373,7 +424,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">In Progress</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-blue-600">{stats.inProgress}</div>
+                <div className="text-2xl font-bold text-[#6ea8fe]">{stats.inProgress}</div>
               </CardContent>
             </Card>
             <Card>
@@ -381,7 +432,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">Pending</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
+                <div className="text-2xl font-bold text-primary">{stats.pending}</div>
               </CardContent>
             </Card>
             <Card>
@@ -389,7 +440,7 @@ export default function ProjectDetailPage() {
                 <CardTitle className="text-sm font-medium">Completed</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-green-600">{stats.completed}</div>
+                <div className="text-2xl font-bold text-[#5fd39a]">{stats.completed}</div>
               </CardContent>
             </Card>
           </div>
@@ -399,6 +450,7 @@ export default function ProjectDetailPage() {
             <TabsList>
               <TabsTrigger value="board">Board</TabsTrigger>
               <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
@@ -408,6 +460,7 @@ export default function ProjectDetailPage() {
                 onTaskUpdate={handleUpdateTask}
                 onTaskEdit={handleTaskEdit}
                 onTaskDelete={handleDeleteTask}
+                onTaskView={handleTaskView}
               />
             </TabsContent>
 
@@ -457,6 +510,10 @@ export default function ProjectDetailPage() {
               </Card>
             </TabsContent>
 
+            <TabsContent value="activity" className="space-y-4">
+              <ActivityFeed projectId={projectId} refreshToken={activityRefreshToken} />
+            </TabsContent>
+
             <TabsContent value="analytics" className="space-y-4">
               <ProjectAnalytics
                 projectId={projectId}
@@ -476,7 +533,27 @@ export default function ProjectDetailPage() {
             onSave={handleTaskSave}
             task={editingTask}
             projectMembers={members.filter(member => member.role)}
+            projectName={project?.name}
             loading={taskLoading}
+          />
+
+          {/* Task Detail Modal — clicking a Kanban card opens this. It has its
+              own Edit/Delete buttons and the comment thread; both hand off to
+              the same handlers the "..." card menu uses, closing this view
+              first so the two modals don't end up stacked. */}
+          <TaskDetailModal
+            task={viewingTask}
+            isOpen={!!viewingTask}
+            onClose={() => setViewingTask(null)}
+            onEdit={(task) => {
+              setViewingTask(null);
+              handleTaskEdit(task);
+            }}
+            onDelete={(taskId) => {
+              setViewingTask(null);
+              handleDeleteTask(taskId);
+            }}
+            projectMembers={members.filter(member => member.role)}
           />
 
           {/* Edit Project Dialog */}

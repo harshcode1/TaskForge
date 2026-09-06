@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:6060/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6060/api';
 
 // Create axios instance
 const api = axios.create({
@@ -79,10 +79,31 @@ export const commentsAPI = {
   delete: (id) => api.delete(`/comments/${id}`),
 };
 
+// Activity API — persisted history of task changes, the audit-log
+// counterpart to the live WebSocket feed (see hooks/use-project-socket.js)
+export const activityAPI = {
+  getForProject: (projectId) => api.get(`/activity/${projectId}`),
+};
+
 // Dashboard API
 export const dashboardAPI = {
   getProjectSummary: (projectId) => api.get(`/dashboard/${projectId}`),
   getUserDashboard: () => api.get('/dashboard/my-dashboard'),
+};
+
+// Users API
+export const usersAPI = {
+  getMe: () => api.get('/users/me'),
+  updateMe: (name) => api.put('/users/me', { name }),
+};
+
+// AI API — every call here can 503 if OPENAI_API_KEY isn't configured on the
+// backend; callers should check aiAPI.getStatus() once and hide the
+// affordance entirely rather than show a button that always fails.
+export const aiAPI = {
+  getStatus: () => api.get('/ai/status'),
+  generateTaskDescription: (title, projectName) => api.post('/ai/task-description', { title, projectName }),
+  getProjectSummary: (projectId) => api.get(`/ai/project-summary/${projectId}`),
 };
 
 export default api;

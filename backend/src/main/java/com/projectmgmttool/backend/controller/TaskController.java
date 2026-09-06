@@ -1,8 +1,13 @@
 package com.projectmgmttool.backend.controller;
 
+import com.projectmgmttool.backend.entity.ActivityLog;
 import com.projectmgmttool.backend.entity.Task;
+import com.projectmgmttool.backend.entity.User;
+import com.projectmgmttool.backend.dto.TaskEvent;
 import com.projectmgmttool.backend.dto.TaskRequest;
 import com.projectmgmttool.backend.dto.TaskDTO;
+import com.projectmgmttool.backend.repository.ActivityLogRepository;
+import com.projectmgmttool.backend.repository.UserRepository;
 import com.projectmgmttool.backend.service.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -13,6 +18,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
@@ -29,6 +35,27 @@ public class TaskController {
 
     @Autowired
     private TaskService taskService;
+
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private SimpMessagingTemplate messagingTemplate;
+
+    @Autowired
+    private ActivityLogRepository activityLogRepository;
+
+    // Both the live WebSocket push and the persisted audit-log row come from
+    // this one call site so they can never drift apart — see TaskEvent's and
+    // ActivityLog's Javadoc for why they're two separate mechanisms (one
+    // ephemeral, one durable) built from the same event data.
+    private void broadcast(String type, Task task, String actorEmail) {
+        String actorName = userRepository.findByEmail(actorEmail).map(User::getName).orElse(actorEmail);
+        UUID projectId = task.getProject().getId();
+        TaskEvent event = new TaskEvent(type, task.getId(), task.getTitle(), projectId, actorName, actorEmail);
+        messagingTemplate.convertAndSend("/topic/project/" + projectId + "/tasks", event);
+        activityLogRepository.save(new ActivityLog(type, task.getId(), task.getTitle(), projectId, actorName, actorEmail));
+    }
 
     private TaskDTO toDTO(Task task) {
         return new TaskDTO(
@@ -56,6 +83,7 @@ public class TaskController {
             @Valid @RequestBody TaskRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         Task created = taskService.createTask(request, userDetails.getUsername());
+        broadcast("CREATED", created, userDetails.getUsername());
         return ResponseEntity.ok(toDTO(created));
     }
 
@@ -90,6 +118,7 @@ public class TaskController {
             @Valid @RequestBody TaskRequest request,
             @AuthenticationPrincipal UserDetails userDetails) {
         Task updated = taskService.updateTask(id, request, userDetails.getUsername());
+        broadcast("UPDATED", updated, userDetails.getUsername());
         return ResponseEntity.ok(toDTO(updated));
     }
 
@@ -102,7 +131,8 @@ public class TaskController {
     public ResponseEntity<Void> deleteTask(
             @PathVariable UUID id,
             @AuthenticationPrincipal UserDetails userDetails) {
-        taskService.deleteTask(id, userDetails.getUsername());
+        Task deleted = taskService.deleteTask(id, userDetails.getUsername());
+        broadcast("DELETED", deleted, userDetails.getUsername());
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -19,13 +19,7 @@ export default function CommentSection({ taskId, isOpen, onClose }) {
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
 
-  useEffect(() => {
-    if (isOpen && taskId) {
-      fetchComments();
-    }
-  }, [isOpen, taskId]);
-
-  const fetchComments = async () => {
+  const fetchComments = useCallback(async () => {
     setLoading(true);
     try {
       const response = await commentsAPI.getByTask(taskId);
@@ -36,7 +30,13 @@ export default function CommentSection({ taskId, isOpen, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [taskId]);
+
+  useEffect(() => {
+    if (isOpen && taskId) {
+      fetchComments();
+    }
+  }, [isOpen, taskId, fetchComments]);
 
   const handleSubmitComment = async (e) => {
     e.preventDefault();

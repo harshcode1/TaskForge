@@ -11,6 +11,7 @@ import com.projectmgmttool.backend.repository.TaskRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -44,6 +45,8 @@ public class CommentService {
         return commentRepository.save(comment);
     }
 
+    // See ProjectService.getProjectById — same lazy-collection-after-session-close bug.
+    @Transactional(readOnly = true)
     public List<Comment> getCommentsForTask(UUID taskId, String userEmail) {
         // First check if the task exists
         Task task = taskRepository.findById(taskId)

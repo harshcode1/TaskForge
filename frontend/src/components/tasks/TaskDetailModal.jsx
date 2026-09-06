@@ -3,11 +3,11 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
 import CommentSection from './CommentSection';
 import { Calendar, User, Flag, Clock, MessageCircle, Edit, Trash2 } from 'lucide-react';
+import { priorityBadgeClass, priorityLabel, statusBadgeClass, statusLabel } from '@/lib/task-ui';
 
 export default function TaskDetailModal({ 
   task, 
@@ -20,34 +20,6 @@ export default function TaskDetailModal({
   const [showComments, setShowComments] = useState(false);
 
   if (!task) return null;
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case 'HIGH':
-        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
-      case 'MEDIUM':
-        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-300';
-      case 'LOW':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'TODO':
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-      case 'IN_PROGRESS':
-        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
-      case 'PENDING':
-        return 'bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-300';
-      case 'DONE':
-        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
-      default:
-        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    }
-  };
 
   const getInitials = (name) => {
     return name
@@ -82,14 +54,14 @@ export default function TaskDetailModal({
                 {task.title}
               </DialogTitle>
               <div className="flex items-center space-x-2 mt-2">
-                <Badge className={getStatusColor(task.status)}>
-                  {task.status.replace('_', ' ')}
-                </Badge>
+                <span className={statusBadgeClass(task.status)}>
+                  {statusLabel(task.status)}
+                </span>
                 {task.priority && (
-                  <Badge className={getPriorityColor(task.priority)}>
-                    <Flag className="h-3 w-3 mr-1" />
-                    {task.priority}
-                  </Badge>
+                  <span className={priorityBadgeClass(task.priority)}>
+                    <Flag className="h-3 w-3" />
+                    {priorityLabel(task.priority)}
+                  </span>
                 )}
               </div>
             </div>
@@ -150,7 +122,7 @@ export default function TaskDetailModal({
                 <p className="text-sm font-medium">Due Date</p>
                 <p className={`text-sm mt-1 ${
                   isOverdue(task.dueDate) 
-                    ? 'text-red-600 font-medium' 
+                    ? 'text-destructive font-medium'
                     : 'text-muted-foreground'
                 }`}>
                   {formatDate(task.dueDate)}

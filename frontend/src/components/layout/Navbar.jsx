@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useTheme } from 'next-themes';
-import { Moon, Sun, LogOut, User, Settings, ClipboardList } from 'lucide-react';
+import { Moon, Sun, LogOut, User, Settings, ClipboardList, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import NotificationCenter from './NotificationCenter';
@@ -17,7 +17,12 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    // Home, not /login — an explicit sign-out should land you on the public
+    // landing page (where you can still get to login from there), not push
+    // you straight into a login form. ProtectedRoute's own redirect to
+    // /login is a separate, correct case: that's for hitting a protected
+    // URL while unauthenticated, not for a deliberate logout action.
+    router.push('/');
   };
 
   const getInitials = (name) => {
@@ -35,9 +40,9 @@ export default function Navbar() {
           {/* Logo */}
           <Link href={isAuthenticated ? "/dashboard" : "/"} className="flex items-center space-x-2">
             <div className="h-8 w-8 bg-primary rounded-md flex items-center justify-center">
-              <span className="text-primary-foreground font-bold text-sm">TF</span>
+              <span className="text-primary-foreground font-mono font-bold text-sm">TF</span>
             </div>
-            <span className="font-bold text-xl">TaskForge</span>
+            <span className="font-mono font-bold text-xl">TaskForge</span>
           </Link>
 
           {/* Navigation Links */}
@@ -58,6 +63,24 @@ export default function Navbar() {
 
           {/* Right side */}
           <div className="flex items-center space-x-4">
+            {/* Command palette entry point — Cmd+K works from anywhere, but a
+                keyboard-only shortcut with no visible affordance is a
+                discoverability dead end, so this is a real clickable button too. */}
+            {isAuthenticated && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="hidden sm:inline-flex items-center gap-2 text-muted-foreground font-normal"
+                onClick={() => window.dispatchEvent(new CustomEvent('open-command-palette'))}
+              >
+                <Search className="h-3.5 w-3.5" />
+                <span>Search</span>
+                <kbd className="pointer-events-none ml-1 inline-flex h-5 select-none items-center gap-0.5 rounded border border-border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground">
+                  <span className="text-xs">⌘</span>K
+                </kbd>
+              </Button>
+            )}
+
             {/* Theme Toggle */}
             <Button
               variant="ghost"
@@ -92,11 +115,16 @@ export default function Navbar() {
                         </p>
                       </div>
                     </div>
-                    <DropdownMenuItem>
+                    {/* Imperative navigation, not asChild+Link: Radix closes
+                        the dropdown (and can unmount its portal) on select
+                        in a way that's timing-sensitive with a Link's own
+                        navigation, so the Link version worked inconsistently.
+                        router.push from onClick has no such race. */}
+                    <DropdownMenuItem onClick={() => router.push('/profile')}>
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/settings')}>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
                     </DropdownMenuItem>
