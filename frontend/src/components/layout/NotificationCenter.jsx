@@ -89,7 +89,7 @@ export default function NotificationCenter() {
               <p className="text-sm">No notifications yet</p>
             </div>
           ) : (
-            notifications.slice(0, 10).map((notification) => (
+            notifications.slice(0, 25).map((notification) => (
               <DropdownMenuItem
                 key={notification.id}
                 className={`p-3 cursor-pointer ${!notification.read ? 'bg-muted/50' : ''}`}
@@ -124,14 +124,12 @@ export default function NotificationCenter() {
           )}
         </div>
         
-        {notifications.length > 10 && (
+        {notifications.length > 25 && (
           <>
             <DropdownMenuSeparator />
-            <div className="p-2 text-center">
-              <Button variant="ghost" size="sm" className="w-full">
-                View all notifications
-              </Button>
-            </div>
+            <p className="p-2 text-center text-xs text-muted-foreground">
+              Showing the 25 most recent — clear some above to see older ones.
+            </p>
           </>
         )}
       </DropdownMenuContent>

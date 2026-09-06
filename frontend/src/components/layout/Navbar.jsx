@@ -92,11 +92,16 @@ export default function Navbar() {
                         </p>
                       </div>
                     </div>
-                    <DropdownMenuItem>
+                    {/* Imperative navigation, not asChild+Link: Radix closes
+                        the dropdown (and can unmount its portal) on select
+                        in a way that's timing-sensitive with a Link's own
+                        navigation, so the Link version worked inconsistently.
+                        router.push from onClick has no such race. */}
+                    <DropdownMenuItem onClick={() => router.push('/profile')}>
                       <User className="mr-2 h-4 w-4" />
                       <span>Profile</span>
                     </DropdownMenuItem>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => router.push('/settings')}>
                       <Settings className="mr-2 h-4 w-4" />
                       <span>Settings</span>
                     </DropdownMenuItem>

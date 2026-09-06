@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +14,15 @@ import { projectsAPI } from '@/services/api';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { Plus, FolderOpen, Trash2, Users, Pencil } from 'lucide-react';
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: Math.min(i, 8) * 0.05, ease: [0.25, 0.46, 0.45, 0.94] },
+  }),
+};
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState([]);
@@ -222,9 +232,14 @@ export default function ProjectsPage() {
               </Dialog>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {projects.map((project) => (
-                <Card key={project.id} className="hover:shadow-lg transition-shadow">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {projects.map((project, index) => (
+                <motion.div key={project.id} custom={index} variants={cardVariants}>
+                <Card className="transition-colors hover:border-primary/40">
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex-1 min-w-0 mr-2">
@@ -268,8 +283,9 @@ export default function ProjectsPage() {
                     </div>
                   </CardContent>
                 </Card>
+                </motion.div>
               ))}
-            </div>
+            </motion.div>
           )}
 
           {/* Edit Project Dialog */}

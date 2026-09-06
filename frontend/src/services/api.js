@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:6060/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6060/api';
 
 // Create axios instance
 const api = axios.create({
@@ -83,6 +83,12 @@ export const commentsAPI = {
 export const dashboardAPI = {
   getProjectSummary: (projectId) => api.get(`/dashboard/${projectId}`),
   getUserDashboard: () => api.get('/dashboard/my-dashboard'),
+};
+
+// Users API
+export const usersAPI = {
+  getMe: () => api.get('/users/me'),
+  updateMe: (name) => api.put('/users/me', { name }),
 };
 
 export default api;

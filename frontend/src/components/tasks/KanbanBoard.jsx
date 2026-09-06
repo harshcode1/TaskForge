@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { motion } from 'framer-motion';
 import { DndContext, DragOverlay, closestCorners, KeyboardSensor, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { useSortable } from '@dnd-kit/sortable';
@@ -43,7 +44,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
-      className="cursor-grab border-border/80 active:cursor-grabbing hover:border-primary/40 transition-colors"
+      className="cursor-grab border-border/80 active:cursor-grabbing hover:border-primary/40 hover:-translate-y-0.5 transition-[border-color,transform] duration-200"
     >
       <CardHeader className="pb-2">
         <div className="flex items-start justify-between">
@@ -105,11 +106,16 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
   );
 };
 
-const Column = ({ title, tasks, status, onEdit, onDelete }) => {
+const Column = ({ title, tasks, status, onEdit, onDelete, index = 0 }) => {
   const taskIds = tasks.map(task => task.id);
 
   return (
-    <div className="flex h-full flex-col rounded-lg border border-border bg-secondary/30 p-4">
+    <motion.div
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, delay: index * 0.06 }}
+      className="flex h-full flex-col rounded-lg border border-border bg-secondary/30 p-4"
+    >
       <div className="mb-4 flex items-center justify-between">
         <h3 className="flex items-center gap-2 font-mono text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           <span className={statusDotClass(status)} />
@@ -132,7 +138,7 @@ const Column = ({ title, tasks, status, onEdit, onDelete }) => {
           ))}
         </div>
       </SortableContext>
-    </div>
+    </motion.div>
   );
 };
 
@@ -208,12 +214,13 @@ export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDel
       onDragEnd={handleDragEnd}
     >
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 h-[600px]">
-        {columns.map((column) => (
+        {columns.map((column, index) => (
           <SortableContext key={column.id} items={[column.id]}>
             <Column
               title={column.title}
               tasks={getTasksByStatus(column.status)}
               status={column.status}
+              index={index}
               onEdit={onTaskEdit}
               onDelete={onTaskDelete}
             />

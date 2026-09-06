@@ -3,6 +3,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
+// Same fallback as src/services/api.js — both hardcoded 'localhost:6060'
+// independently before this, which only ever worked by coincidence in local
+// dev (the deployed frontend has no way to reach the visitor's own machine).
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6060/api';
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -40,7 +45,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:6060/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password,
       });
@@ -69,7 +74,7 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (name, email, password) => {
     try {
-      const response = await axios.post('http://localhost:6060/api/auth/register', {
+      const response = await axios.post(`${API_BASE_URL}/auth/register`, {
         name,
         email,
         password,

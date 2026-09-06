@@ -19,16 +19,19 @@ export default function ProtectedRoute({ children }) {
     }
   }, [isAuthenticated, loading, router]);
 
-  if (loading) {
+  // Both branches below render the same spinner rather than null. Returning
+  // null here used to cause a blank black frame on every sign-out: logout()
+  // flips isAuthenticated synchronously, this component re-renders and
+  // returns null *before* router.push('/login') actually completes the
+  // navigation, so the user saw an empty page for a beat. A spinner is
+  // correct either way — we're either still checking auth, or we know we're
+  // unauthenticated and are already navigating away.
+  if (loading || !isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary"></div>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return null;
   }
 
   return children;

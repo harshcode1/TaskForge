@@ -1,16 +1,27 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import AnimatedNumber from '@/components/ui/animated-number';
 import { projectsAPI, tasksAPI, dashboardAPI } from '@/services/api';
 import { toast } from 'react-hot-toast';
 import Link from 'next/link';
 import { Plus, FolderOpen, CheckCircle, Clock, AlertCircle, Loader2 } from 'lucide-react';
 import { statusBadgeClass, statusLabel } from '@/lib/task-ui';
+
+const cardVariants = {
+  hidden: { opacity: 0, y: 14 },
+  visible: (i = 0) => ({
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.4, delay: i * 0.06, ease: [0.25, 0.46, 0.45, 0.94] },
+  }),
+};
 
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -110,7 +121,12 @@ export default function DashboardPage() {
         <Navbar />
         <div className="container mx-auto px-4 py-8">
           {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4 }}
+            className="flex flex-col md:flex-row md:items-center md:justify-between mb-8"
+          >
             <div>
               <h1 className="text-3xl font-bold">Welcome back, {user?.name}!</h1>
               <p className="text-muted-foreground mt-1">
@@ -125,53 +141,70 @@ export default function DashboardPage() {
                 </Button>
               </Link>
             </div>
-          </div>
+          </motion.div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-                <FolderOpen className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalProjects}</div>
-              </CardContent>
-            </Card>
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"
+          >
+            <motion.div custom={0} variants={cardVariants}>
+              <Card className="transition-colors hover:border-primary/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+                  <FolderOpen className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold"><AnimatedNumber value={stats.totalProjects} /></div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">My Tasks</CardTitle>
-                <CheckCircle className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stats.totalTasks}</div>
-                <p className="text-xs text-muted-foreground mt-1">assigned to me</p>
-              </CardContent>
-            </Card>
+            <motion.div custom={1} variants={cardVariants}>
+              <Card className="transition-colors hover:border-primary/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">My Tasks</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold"><AnimatedNumber value={stats.totalTasks} /></div>
+                  <p className="text-xs text-muted-foreground mt-1">assigned to me</p>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Completed</CardTitle>
-                <CheckCircle className="h-4 w-4 text-[#5fd39a]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#5fd39a]">{stats.completedTasks}</div>
-              </CardContent>
-            </Card>
+            <motion.div custom={2} variants={cardVariants}>
+              <Card className="transition-colors hover:border-[#5fd39a]/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Completed</CardTitle>
+                  <CheckCircle className="h-4 w-4 text-[#5fd39a]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-[#5fd39a]"><AnimatedNumber value={stats.completedTasks} /></div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-                <AlertCircle className="h-4 w-4 text-[#6ea8fe]" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold text-[#6ea8fe]">{stats.inProgressTasks}</div>
-              </CardContent>
-            </Card>
-          </div>
+            <motion.div custom={3} variants={cardVariants}>
+              <Card className="transition-colors hover:border-[#6ea8fe]/40">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">In Progress</CardTitle>
+                  <AlertCircle className="h-4 w-4 text-[#6ea8fe]" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-[#6ea8fe]"><AnimatedNumber value={stats.inProgressTasks} /></div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 16 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.24 }}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-8"
+          >
             {/* Recent Projects */}
             <Card>
               <CardHeader>
@@ -192,7 +225,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-4">
                     {projects.slice(0, 5).map((project) => (
-                      <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={project.id} className="flex items-center justify-between p-3 border rounded-lg transition-colors hover:border-primary/40">
                         <div className="min-w-0 flex-1 mr-2">
                           <h4 className="font-medium truncate">{project.name}</h4>
                           <p className="text-sm text-muted-foreground truncate">{project.description}</p>
@@ -238,7 +271,7 @@ export default function DashboardPage() {
                 ) : (
                   <div className="space-y-4">
                     {recentTasks.map((task) => (
-                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div key={task.id} className="flex items-center justify-between p-3 border rounded-lg transition-colors hover:border-primary/40">
                         <div className="flex-1 min-w-0 mr-2">
                           <h4 className="font-medium truncate">{task.title}</h4>
                           <p className="text-sm text-muted-foreground truncate">{task.description}</p>
@@ -253,7 +286,7 @@ export default function DashboardPage() {
                 )}
               </CardContent>
             </Card>
-          </div>
+          </motion.div>
         </div>
       </div>
     </ProtectedRoute>
