@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import { CheckCircle, Users, Calendar, BarChart3, Github, ShieldCheck, UserCog, User as UserIcon, Loader2 } from 'lucide-react';
+import { CheckCircle, Users, Calendar, BarChart3, Github, ShieldCheck, UserCog, User as UserIcon, Loader2, Sparkles } from 'lucide-react';
 
 const REPO_URL = 'https://github.com/harshcode1/TaskForge';
 
@@ -107,6 +107,14 @@ export default function HomePage() {
                 <Github className="h-4 w-4" />
                 Source
               </a>
+              {/* Visible from the very top of the page, no scrolling required
+                  — jumps down to the actual demo picker in the hero. */}
+              <a href="#live-demo">
+                <Button variant="outline" size="sm" className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary">
+                  <Sparkles className="h-4 w-4" />
+                  Live Demo
+                </Button>
+              </a>
               <Link href="/login">
                 <Button variant="ghost">Login</Button>
               </Link>
@@ -152,10 +160,23 @@ export default function HomePage() {
             behind a Next.js frontend, backed by a real test suite. Run it with one Docker command.
           </motion.p>
 
-          {/* Live demo — no signup, pick a role, see a fully populated instance */}
-          <motion.div initial="hidden" animate="visible" custom={3} variants={fadeUp} className="mx-auto max-w-3xl">
-            <p className="font-mono text-xs font-semibold uppercase tracking-widest text-muted-foreground mb-4">
-              Try it live — no signup
+          {/* Live demo — no signup, pick a role, see a fully populated instance.
+              Its own bordered, tinted card (not just more hero text) so it
+              reads as a distinct widget at a glance, plus an #anchor the nav
+              button above jumps straight to. */}
+          <motion.div
+            id="live-demo"
+            initial="hidden"
+            animate="visible"
+            custom={3}
+            variants={fadeUp}
+            className="mx-auto max-w-3xl scroll-mt-24 rounded-xl border border-primary/30 bg-primary/5 p-6 sm:p-8"
+          >
+            <p className="font-mono text-sm font-semibold uppercase tracking-widest text-primary mb-1">
+              ▸ Try it live — no signup
+            </p>
+            <p className="text-sm text-muted-foreground mb-5">
+              Pick a role, see a fully populated instance instantly.
             </p>
             <div className="grid gap-4 sm:grid-cols-3">
               {DEMO_ACCOUNTS.map((account, i) => {

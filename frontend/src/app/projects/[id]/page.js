@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import Navbar from '@/components/layout/Navbar';
 import TaskModal from '@/components/tasks/TaskModal';
+import TaskDetailModal from '@/components/tasks/TaskDetailModal';
 
 // @dnd-kit and recharts are only needed once a user is actually looking at this
 // project's Board/Analytics tab — code-split them out of the initial bundle
@@ -44,6 +45,7 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true);
   const [taskModalOpen, setTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState(null);
+  const [viewingTask, setViewingTask] = useState(null);
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteData, setInviteData] = useState({ email: '', role: 'MEMBER' });
   const [inviting, setInviting] = useState(false);
@@ -141,6 +143,10 @@ export default function ProjectDetailPage() {
   const handleTaskEdit = (task) => {
     setEditingTask(task);
     setTaskModalOpen(true);
+  };
+
+  const handleTaskView = (task) => {
+    setViewingTask(task);
   };
 
   const handleTaskSave = (taskData) => {
@@ -420,6 +426,7 @@ export default function ProjectDetailPage() {
                 onTaskUpdate={handleUpdateTask}
                 onTaskEdit={handleTaskEdit}
                 onTaskDelete={handleDeleteTask}
+                onTaskView={handleTaskView}
               />
             </TabsContent>
 
@@ -489,6 +496,25 @@ export default function ProjectDetailPage() {
             task={editingTask}
             projectMembers={members.filter(member => member.role)}
             loading={taskLoading}
+          />
+
+          {/* Task Detail Modal — clicking a Kanban card opens this. It has its
+              own Edit/Delete buttons and the comment thread; both hand off to
+              the same handlers the "..." card menu uses, closing this view
+              first so the two modals don't end up stacked. */}
+          <TaskDetailModal
+            task={viewingTask}
+            isOpen={!!viewingTask}
+            onClose={() => setViewingTask(null)}
+            onEdit={(task) => {
+              setViewingTask(null);
+              handleTaskEdit(task);
+            }}
+            onDelete={(taskId) => {
+              setViewingTask(null);
+              handleDeleteTask(taskId);
+            }}
+            projectMembers={members.filter(member => member.role)}
           />
 
           {/* Edit Project Dialog */}

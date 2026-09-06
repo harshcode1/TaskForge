@@ -10,6 +10,19 @@ const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:6060/a
 
 const AuthContext = createContext();
 
+// Plain module-level flag, deliberately outside React state. ProtectedRoute
+// needs to distinguish "isAuthenticated just went false because the user
+// explicitly logged out" (its own redirect should stand down — the logout
+// caller already owns navigation) from "isAuthenticated is false because
+// this is someone hitting a protected URL cold" (ProtectedRoute should
+// redirect to /login). Timing-based approaches (delay the redirect, cancel
+// on unmount, check window.location.pathname at fire-time) all lost this
+// race under real navigation timing — Next keeps the old route mounted
+// during a client-side transition, and dev-mode transitions are slower
+// than any short delay. This encodes intent directly instead of guessing
+// at it from timing, so it isn't timing-sensitive at all.
+export let isLoggingOut = false;
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
@@ -103,15 +116,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Merges a partial update (e.g. a new name from the Profile page) into both
+  // the localStorage copy and the live React state. A page that only wrote to
+  // localStorage directly — which the Profile page used to do — updates what
+  // survives a reload but not what Navbar is actually reading right now
+  // (it's rendering the `user` object from this context's state, not from
+  // localStorage), so the name changes never showed up until the user
+  // manually refreshed.
+  const updateUser = (patch) => {
+    setUser((prev) => {
+      const next = { ...prev, ...patch };
+      localStorage.setItem('user', JSON.stringify(next));
+      return next;
+    });
+  };
+
   const logout = () => {
+    isLoggingOut = true;
+    // Cleared after the caller's own navigation (e.g. router.push('/')) has
+    // had time to land — see the comment on isLoggingOut above.
+    setTimeout(() => { isLoggingOut = false; }, 1500);
+
     // Clear localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
+
     // Clear state
     setToken(null);
     setUser(null);
-    
+
     // Remove authorization header
     delete axios.defaults.headers.common['Authorization'];
   };
@@ -123,6 +156,7 @@ export const AuthProvider = ({ children }) => {
     login,
     register,
     logout,
+    updateUser,
     isAuthenticated: !!user,
   };
 

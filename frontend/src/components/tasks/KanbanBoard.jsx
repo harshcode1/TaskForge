@@ -14,7 +14,7 @@ import { MoreHorizontal, Calendar, User } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { priorityBadgeClass, priorityLabel, statusDotClass } from '@/lib/task-ui';
 
-const TaskCard = ({ task, onEdit, onDelete }) => {
+const TaskCard = ({ task, onEdit, onDelete, onView }) => {
   const {
     attributes,
     listeners,
@@ -44,6 +44,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => onView?.(task)}
       className="cursor-grab border-border/80 active:cursor-grabbing hover:border-primary/40 hover:-translate-y-0.5 transition-[border-color,transform] duration-200"
     >
       <CardHeader className="pb-2">
@@ -53,11 +54,17 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
           </CardTitle>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-6 w-6">
+              {/* Stop the click from also bubbling up to the card's own
+                  onClick (which opens the detail modal) — the "..." menu
+                  needs to open on its own, not underneath another modal. */}
+              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={(e) => e.stopPropagation()}>
                 <MoreHorizontal className="h-3 w-3" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            {/* Radix portals this content, but React's synthetic events still
+                bubble through the component tree to the Card's onClick — this
+                stops Edit/Delete clicks from also opening the detail modal. */}
+            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem onClick={() => onEdit(task)}>
                 Edit
               </DropdownMenuItem>
@@ -106,7 +113,7 @@ const TaskCard = ({ task, onEdit, onDelete }) => {
   );
 };
 
-const Column = ({ title, tasks, status, onEdit, onDelete, index = 0 }) => {
+const Column = ({ title, tasks, status, onEdit, onDelete, onView, index = 0 }) => {
   const taskIds = tasks.map(task => task.id);
 
   return (
@@ -134,6 +141,7 @@ const Column = ({ title, tasks, status, onEdit, onDelete, index = 0 }) => {
               task={task}
               onEdit={onEdit}
               onDelete={onDelete}
+              onView={onView}
             />
           ))}
         </div>
@@ -142,11 +150,19 @@ const Column = ({ title, tasks, status, onEdit, onDelete, index = 0 }) => {
   );
 };
 
-export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDelete }) {
+export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDelete, onTaskView }) {
   const [activeTask, setActiveTask] = useState(null);
   
   const sensors = useSensors(
-    useSensor(PointerSensor),
+    // Without an activation constraint, PointerSensor claims every pointerdown
+    // on a sortable card as a potential drag from pixel zero — which also
+    // swallows the native click event, so clicking a card to open its detail
+    // view (onView, wired in the Card below) silently did nothing. Requiring
+    // 8px of movement before a drag is recognized is dnd-kit's own documented
+    // fix for "click and drag need to coexist on the same element".
+    useSensor(PointerSensor, {
+      activationConstraint: { distance: 8 },
+    }),
     useSensor(KeyboardSensor, {
       coordinateGetter: sortableKeyboardCoordinates,
     })
@@ -223,6 +239,7 @@ export default function KanbanBoard({ tasks, onTaskUpdate, onTaskEdit, onTaskDel
               index={index}
               onEdit={onTaskEdit}
               onDelete={onTaskDelete}
+              onView={onTaskView}
             />
           </SortableContext>
         ))}

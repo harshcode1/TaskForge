@@ -17,7 +17,12 @@ export default function Navbar() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    // Home, not /login — an explicit sign-out should land you on the public
+    // landing page (where you can still get to login from there), not push
+    // you straight into a login form. ProtectedRoute's own redirect to
+    // /login is a separate, correct case: that's for hitting a protected
+    // URL while unauthenticated, not for a deliberate logout action.
+    router.push('/');
   };
 
   const getInitials = (name) => {

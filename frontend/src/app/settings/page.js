@@ -26,7 +26,9 @@ export default function SettingsPage() {
 
   const handleLogout = () => {
     logout();
-    router.push('/login');
+    // Same as Navbar's handleLogout — see its comment for why this is '/'
+    // and not '/login'.
+    router.push('/');
   };
 
   useEffect(() => {

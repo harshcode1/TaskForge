@@ -18,7 +18,7 @@ const getInitials = (name) =>
   name?.split(' ').map((w) => w[0]).join('').toUpperCase() || 'U';
 
 export default function ProfilePage() {
-  const { user: authUser } = useAuth();
+  const { updateUser } = useAuth();
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [name, setName] = useState('');
@@ -40,9 +40,10 @@ export default function ProfilePage() {
     try {
       const res = await usersAPI.updateMe(name);
       setProfile(res.data);
-      // Keep the navbar/localStorage copy of the user in sync too
-      const stored = JSON.parse(localStorage.getItem('user') || '{}');
-      localStorage.setItem('user', JSON.stringify({ ...stored, name: res.data.name }));
+      // Updates AuthContext's live state (not just localStorage) so Navbar's
+      // avatar/dropdown — reading from context, not localStorage — reflects
+      // the new name immediately instead of only after a reload.
+      updateUser({ name: res.data.name });
       toast.success('Profile updated');
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to update profile');
