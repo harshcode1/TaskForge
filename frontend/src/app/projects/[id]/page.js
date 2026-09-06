@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { projectsAPI, tasksAPI, projectMembersAPI } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useProjectSocket } from '@/hooks/use-project-socket';
+import ActivityFeed from '@/components/projects/ActivityFeed';
 import { toast } from 'react-hot-toast';
 import { Plus, Users, UserPlus, ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
@@ -92,11 +93,17 @@ export default function ProjectDetailPage() {
     fetchProjectData();
   }, [projectId, router, fetchProjectData]);
 
+  // Bumped on every live task event (ours or a teammate's) so the Activity
+  // tab refetches its persisted history without the user needing to leave
+  // and come back to the tab.
+  const [activityRefreshToken, setActivityRefreshToken] = useState(0);
+
   // Live board updates — another user creating/editing/deleting a task on
   // this project shows up here without a manual refresh. Skip our own
   // actions: the REST call that caused them already updated local state,
   // so re-handling our own broadcast would just be a redundant refetch.
   const isLive = useProjectSocket(projectId, (event) => {
+    setActivityRefreshToken((n) => n + 1);
     if (event.actorEmail === user?.email) return;
 
     const verb = event.type === 'CREATED' ? 'created' : event.type === 'DELETED' ? 'deleted' : 'updated';
@@ -443,6 +450,7 @@ export default function ProjectDetailPage() {
             <TabsList>
               <TabsTrigger value="board">Board</TabsTrigger>
               <TabsTrigger value="members">Members ({members.length})</TabsTrigger>
+              <TabsTrigger value="activity">Activity</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
             </TabsList>
 
@@ -500,6 +508,10 @@ export default function ProjectDetailPage() {
                   )}
                 </CardContent>
               </Card>
+            </TabsContent>
+
+            <TabsContent value="activity" className="space-y-4">
+              <ActivityFeed projectId={projectId} refreshToken={activityRefreshToken} />
             </TabsContent>
 
             <TabsContent value="analytics" className="space-y-4">

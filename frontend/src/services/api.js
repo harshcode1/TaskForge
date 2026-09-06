@@ -79,6 +79,12 @@ export const commentsAPI = {
   delete: (id) => api.delete(`/comments/${id}`),
 };
 
+// Activity API — persisted history of task changes, the audit-log
+// counterpart to the live WebSocket feed (see hooks/use-project-socket.js)
+export const activityAPI = {
+  getForProject: (projectId) => api.get(`/activity/${projectId}`),
+};
+
 // Dashboard API
 export const dashboardAPI = {
   getProjectSummary: (projectId) => api.get(`/dashboard/${projectId}`),

@@ -1,10 +1,12 @@
 package com.projectmgmttool.backend.controller;
 
+import com.projectmgmttool.backend.entity.ActivityLog;
 import com.projectmgmttool.backend.entity.Task;
 import com.projectmgmttool.backend.entity.User;
 import com.projectmgmttool.backend.dto.TaskEvent;
 import com.projectmgmttool.backend.dto.TaskRequest;
 import com.projectmgmttool.backend.dto.TaskDTO;
+import com.projectmgmttool.backend.repository.ActivityLogRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import com.projectmgmttool.backend.service.TaskService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -40,11 +42,19 @@ public class TaskController {
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
 
+    @Autowired
+    private ActivityLogRepository activityLogRepository;
+
+    // Both the live WebSocket push and the persisted audit-log row come from
+    // this one call site so they can never drift apart — see TaskEvent's and
+    // ActivityLog's Javadoc for why they're two separate mechanisms (one
+    // ephemeral, one durable) built from the same event data.
     private void broadcast(String type, Task task, String actorEmail) {
         String actorName = userRepository.findByEmail(actorEmail).map(User::getName).orElse(actorEmail);
         UUID projectId = task.getProject().getId();
         TaskEvent event = new TaskEvent(type, task.getId(), task.getTitle(), projectId, actorName, actorEmail);
         messagingTemplate.convertAndSend("/topic/project/" + projectId + "/tasks", event);
+        activityLogRepository.save(new ActivityLog(type, task.getId(), task.getTitle(), projectId, actorName, actorEmail));
     }
 
     private TaskDTO toDTO(Task task) {
