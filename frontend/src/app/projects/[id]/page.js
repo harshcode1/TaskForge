@@ -30,6 +30,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { projectsAPI, tasksAPI, projectMembersAPI } from '@/services/api';
+import { useAuth } from '@/contexts/AuthContext';
+import { useProjectSocket } from '@/hooks/use-project-socket';
 import { toast } from 'react-hot-toast';
 import { Plus, Users, UserPlus, ArrowLeft, Pencil } from 'lucide-react';
 import Link from 'next/link';
@@ -37,6 +39,7 @@ import Link from 'next/link';
 export default function ProjectDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useAuth();
   const projectId = params.id;
 
   const [project, setProject] = useState(null);
@@ -88,6 +91,18 @@ export default function ProjectDetailPage() {
     }
     fetchProjectData();
   }, [projectId, router, fetchProjectData]);
+
+  // Live board updates — another user creating/editing/deleting a task on
+  // this project shows up here without a manual refresh. Skip our own
+  // actions: the REST call that caused them already updated local state,
+  // so re-handling our own broadcast would just be a redundant refetch.
+  const isLive = useProjectSocket(projectId, (event) => {
+    if (event.actorEmail === user?.email) return;
+
+    const verb = event.type === 'CREATED' ? 'created' : event.type === 'DELETED' ? 'deleted' : 'updated';
+    toast(`${event.actorName} ${verb} "${event.taskTitle}"`, { icon: '🔄' });
+    fetchProjectData();
+  });
 
   const handleCreateTask = async (taskData) => {
     setTaskLoading(true);
@@ -295,7 +310,18 @@ export default function ProjectDetailPage() {
               </Button>
             </Link>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold">{project.name}</h1>
+              <div className="flex items-center gap-2">
+                <h1 className="text-3xl font-bold">{project.name}</h1>
+                {isLive && (
+                  <span
+                    className="flex items-center gap-1.5 text-xs font-medium text-[#5fd39a] border border-[#5fd39a]/30 bg-[#5fd39a]/10 rounded-full px-2 py-0.5"
+                    title="Live updates connected — you'll see teammates' changes in real time"
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#5fd39a] animate-pulse" />
+                    Live
+                  </span>
+                )}
+              </div>
               <p className="text-muted-foreground mt-1">
                 {project.description || 'No description provided'}
               </p>
