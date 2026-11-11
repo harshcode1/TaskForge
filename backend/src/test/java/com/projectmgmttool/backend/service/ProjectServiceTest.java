@@ -33,6 +33,9 @@ class ProjectServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ProjectAccessService access;
+
     private User owner;
     private Project project;
     private UUID projectId;
@@ -76,19 +79,60 @@ class ProjectServiceTest {
 
     @Test
     void deleteProject_asOwner_deletesSuccessfully() {
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+        when(access.requireOwner(projectId, "owner@example.com")).thenReturn(project);
 
         assertDoesNotThrow(() -> projectService.deleteProject(projectId, "owner@example.com"));
         verify(projectRepository).delete(project);
     }
 
     @Test
-    void deleteProject_asNonOwner_throwsForbidden() {
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
+    void deleteProject_accessCheckFails_errorPropagatesAndNothingIsDeleted() {
+        when(access.requireOwner(projectId, "other@example.com"))
+                .thenThrow(new CustomApiException("Only the project owner can do this", 403));
 
         CustomApiException ex = assertThrows(CustomApiException.class,
                 () -> projectService.deleteProject(projectId, "other@example.com"));
         assertEquals(403, ex.getErrorCode());
+        verify(projectRepository, never()).delete(any());
+    }
+
+    @Test
+    void updateProject_asOwner_savesNewNameAndDescription() {
+        when(access.requireOwner(projectId, "owner@example.com")).thenReturn(project);
+        when(projectRepository.save(project)).thenReturn(project);
+
+        Project result = projectService.updateProject(projectId, "New name", "New description", "owner@example.com");
+
+        assertEquals("New name", result.getName());
+        assertEquals("New description", result.getDescription());
+    }
+
+    @Test
+    void updateProject_accessCheckFails_errorPropagatesAndNothingIsSaved() {
+        when(access.requireOwner(projectId, "other@example.com"))
+                .thenThrow(new CustomApiException("Project not found", 404));
+
+        CustomApiException ex = assertThrows(CustomApiException.class,
+                () -> projectService.updateProject(projectId, "x", "y", "other@example.com"));
+        assertEquals(404, ex.getErrorCode());
+        verify(projectRepository, never()).save(any());
+    }
+
+    @Test
+    void getProjectById_asMember_returnsProject() {
+        when(access.requireMember(projectId, "member@example.com")).thenReturn(project);
+
+        assertSame(project, projectService.getProjectById(projectId, "member@example.com"));
+    }
+
+    @Test
+    void getProjectById_accessCheckFails_errorPropagates() {
+        when(access.requireMember(projectId, "stranger@example.com"))
+                .thenThrow(new CustomApiException("Project not found", 404));
+
+        CustomApiException ex = assertThrows(CustomApiException.class,
+                () -> projectService.getProjectById(projectId, "stranger@example.com"));
+        assertEquals(404, ex.getErrorCode());
     }
 
     @Test
