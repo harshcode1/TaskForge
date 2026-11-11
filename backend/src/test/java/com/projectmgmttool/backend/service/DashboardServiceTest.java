@@ -2,13 +2,13 @@ package com.projectmgmttool.backend.service;
 
 import com.projectmgmttool.backend.dto.DashboardResponse;
 import com.projectmgmttool.backend.entity.Project;
+import com.projectmgmttool.backend.entity.ProjectMember;
 import com.projectmgmttool.backend.entity.Task;
 import com.projectmgmttool.backend.entity.User;
 import com.projectmgmttool.backend.entity.enums.Role;
 import com.projectmgmttool.backend.entity.enums.TaskStatus;
 import com.projectmgmttool.backend.exception.CustomApiException;
 import com.projectmgmttool.backend.repository.ProjectMemberRepository;
-import com.projectmgmttool.backend.repository.ProjectRepository;
 import com.projectmgmttool.backend.repository.TaskRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +19,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -32,7 +31,7 @@ class DashboardServiceTest {
     private DashboardService dashboardService;
 
     @Mock
-    private ProjectRepository projectRepository;
+    private ProjectAccessService access;
 
     @Mock
     private TaskRepository taskRepository;
@@ -62,12 +61,11 @@ class DashboardServiceTest {
     }
 
     @Test
-    void getDashboardData_asOwner_returnsSummary() {
+    void getDashboardData_asMember_returnsSummary() {
         Task doneTask = new Task(); doneTask.setStatus(TaskStatus.DONE);
         Task todoTask = new Task(); todoTask.setStatus(TaskStatus.TODO);
 
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(projectMemberRepository.existsByProjectIdAndUserEmail(projectId, "owner@example.com")).thenReturn(false);
+        when(access.requireMember(projectId, "owner@example.com")).thenReturn(project);
         when(taskRepository.findByProjectId(projectId)).thenReturn(List.of(doneTask, todoTask));
         when(projectMemberRepository.findByProjectId(projectId)).thenReturn(List.of());
 
@@ -80,20 +78,29 @@ class DashboardServiceTest {
     }
 
     @Test
-    void getDashboardData_projectNotFound_throwsException() {
-        when(projectRepository.findById(projectId)).thenReturn(Optional.empty());
+    void getDashboardData_totalMembers_isMemberRowsPlusTheOwner() {
+        // The owner is Project.owner, not a row in project_members, hence the +1.
+        List<ProjectMember> twoMembers = List.of(
+                new ProjectMember(new User(), project, Role.MEMBER),
+                new ProjectMember(new User(), project, Role.MANAGER));
+        when(access.requireMember(projectId, "owner@example.com")).thenReturn(project);
+        when(taskRepository.findByProjectId(projectId)).thenReturn(List.of());
+        when(projectMemberRepository.findByProjectId(projectId)).thenReturn(twoMembers);
 
-        assertThrows(CustomApiException.class,
-                () -> dashboardService.getDashboardData(projectId, "owner@example.com"));
+        DashboardResponse response = dashboardService.getDashboardData(projectId, "owner@example.com");
+
+        assertEquals(3, response.getTotalMembers());
     }
 
     @Test
-    void getDashboardData_unauthorized_throwsForbidden() {
-        when(projectRepository.findById(projectId)).thenReturn(Optional.of(project));
-        when(projectMemberRepository.existsByProjectIdAndUserEmail(projectId, "stranger@example.com")).thenReturn(false);
+    void getDashboardData_accessCheckFails_errorPropagatesAndNothingIsQueried() {
+        when(access.requireMember(projectId, "stranger@example.com"))
+                .thenThrow(new CustomApiException(ProjectAccessService.NOT_FOUND_MESSAGE, 404));
 
         CustomApiException ex = assertThrows(CustomApiException.class,
                 () -> dashboardService.getDashboardData(projectId, "stranger@example.com"));
-        assertEquals(403, ex.getErrorCode());
+
+        assertEquals(404, ex.getErrorCode());
+        verifyNoInteractions(taskRepository);
     }
 }
