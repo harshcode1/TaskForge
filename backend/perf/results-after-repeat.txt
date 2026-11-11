@@ -1,0 +1,46 @@
+== task list measurements: after-repeat ==
+MySQL 8.0.46
+tasks=100000 projects=1000 innodb_buffer_pool_size=134217728
+indexes on tasks: FKekr1dgiqktpyoip3qmp6lxsit(assignee_id); FKsfhn82y57i3k9uxww1s007acc(project_id); idx_tasks_project_status(project_id,status); PRIMARY(id)
+3 warm-up runs then 15 timed runs per query; EXPLAIN ANALYZE x7; medians reported
+
+--- A big project, all tasks
+rows examined: 25000   rows sent: 25000
+server time ms: median 49.61  min 44.76  max 67.95  (n=15)
+EXPLAIN ANALYZE top-node total ms: median 29.20  (runs: 29.2, 28.3, 30.8, 27.6, 26.0, 29.3, 31.4)
+EXPLAIN (id, select_type, table, partitions, type, possible_keys, key, key_len, ref, rows, filtered, Extra):
+  1	SIMPLE	p1_0	NULL	const	PRIMARY	PRIMARY	16	const	1	100.00	Using index
+  1	SIMPLE	t1_0	NULL	ref	FKsfhn82y57i3k9uxww1s007acc,idx_tasks_project_status	FKsfhn82y57i3k9uxww1s007acc	17	const	48371	100.00	Using index condition
+EXPLAIN ANALYZE sample:
+  -> Index lookup on t1_0 using FKsfhn82y57i3k9uxww1s007acc (project_id=0xe5b4baf5dd3511f19f06d23d7f79fd81), with index condition: (t1_0.project_id = 0xe5b4baf5dd3511f19f06d23d7f79fd81)  (cost=5535 rows=48371) (actual time=0.0832..31.4 rows=25000 loops=1)
+
+--- B big project, status=DONE
+rows examined: 6250   rows sent: 6250
+server time ms: median 12.17  min 11.69  max 14.11  (n=15)
+EXPLAIN ANALYZE top-node total ms: median 7.67  (runs: 7.6, 8.3, 7.7, 7.6, 7.5, 7.7, 7.9)
+EXPLAIN (id, select_type, table, partitions, type, possible_keys, key, key_len, ref, rows, filtered, Extra):
+  1	SIMPLE	p1_0	NULL	const	PRIMARY	PRIMARY	16	const	1	100.00	Using index
+  1	SIMPLE	t1_0	NULL	ref	FKsfhn82y57i3k9uxww1s007acc,idx_tasks_project_status	idx_tasks_project_status	19	const,const	11742	100.00	Using index condition
+EXPLAIN ANALYZE sample:
+  -> Index lookup on t1_0 using idx_tasks_project_status (project_id=0xe5b4baf5dd3511f19f06d23d7f79fd81, status='DONE'), with index condition: (t1_0.project_id = 0xe5b4baf5dd3511f19f06d23d7f79fd81)  (cost=1872 rows=11742) (actual time=0.0218..7.91 rows=6250 loops=1)
+
+--- C small project, all tasks
+rows examined: 75   rows sent: 75
+server time ms: median 0.35  min 0.33  max 0.47  (n=15)
+EXPLAIN ANALYZE top-node total ms: median 0.24  (runs: 0.2, 0.3, 0.2, 0.2, 0.2, 0.2, 0.3)
+EXPLAIN (id, select_type, table, partitions, type, possible_keys, key, key_len, ref, rows, filtered, Extra):
+  1	SIMPLE	p1_0	NULL	const	PRIMARY	PRIMARY	16	const	1	100.00	Using index
+  1	SIMPLE	t1_0	NULL	ref	FKsfhn82y57i3k9uxww1s007acc,idx_tasks_project_status	FKsfhn82y57i3k9uxww1s007acc	17	const	75	100.00	Using index condition
+EXPLAIN ANALYZE sample:
+  -> Index lookup on t1_0 using FKsfhn82y57i3k9uxww1s007acc (project_id=0xe5b960b4dd3511f19f06d23d7f79fd81), with index condition: (t1_0.project_id = 0xe5b960b4dd3511f19f06d23d7f79fd81)  (cost=26.2 rows=75) (actual time=0.0186..0.305 rows=75 loops=1)
+
+--- D small project, status=DONE
+rows examined: 16   rows sent: 16
+server time ms: median 0.26  min 0.23  max 0.42  (n=15)
+EXPLAIN ANALYZE top-node total ms: median 0.08  (runs: 0.1, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1)
+EXPLAIN (id, select_type, table, partitions, type, possible_keys, key, key_len, ref, rows, filtered, Extra):
+  1	SIMPLE	p1_0	NULL	const	PRIMARY	PRIMARY	16	const	1	100.00	Using index
+  1	SIMPLE	t1_0	NULL	ref	FKsfhn82y57i3k9uxww1s007acc,idx_tasks_project_status	idx_tasks_project_status	19	const,const	16	100.00	Using index condition
+EXPLAIN ANALYZE sample:
+  -> Index lookup on t1_0 using idx_tasks_project_status (project_id=0xe5b960b4dd3511f19f06d23d7f79fd81, status='DONE'), with index condition: (t1_0.project_id = 0xe5b960b4dd3511f19f06d23d7f79fd81)  (cost=5.6 rows=16) (actual time=0.0202..0.0768 rows=16 loops=1)
+
