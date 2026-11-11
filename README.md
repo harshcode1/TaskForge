@@ -45,14 +45,20 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 ### Collaboration
 - Add comments to any task
 - Delete your own comments
-- Invite members by email; manage roles per project
+- Invite members by email as Manager or Member, and remove them (owner only)
+
+### Live Updates and History
+- **Live board** — when a teammate creates, edits or deletes a task, your open board updates without a refresh (WebSocket / STOMP, project members only)
+- **Activity feed** — a saved history of task changes for each project
+- **⌘K command palette** — jump to any page, project or task from the keyboard
+- **AI helpers (optional)** — generate a task description from its title and a plain-English project summary; they switch on only when `OPENAI_API_KEY` is set
 
 ### Personal Workspace
 - **My Tasks** page — see every task assigned to you across all projects
 - **Dashboard** — personal stats, completion rate, and recent activity
 
 ### Developer Experience
-- REST API with 18 endpoints, documented via **Swagger UI**
+- REST API with 26 endpoints, documented via **Swagger UI**
 - JWT authentication — stateless, secure, 24-hour token expiry
 - 57 frontend unit tests (Jest + React Testing Library)
 - 183 backend tests (JUnit 5 + Mockito, plus integration tests that call the real API with real JWTs on an in-memory H2 database)
@@ -74,19 +80,23 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 | MySQL | 8.0 | Relational database |
 | JJWT | 0.11.5 | JWT generation and validation (HS256) |
 | BCrypt | — | Password hashing |
+| Spring WebSocket (STOMP) | — | Live board updates (simple in-memory broker) |
+| Flyway | — | Versioned schema migrations (production) |
 | Spring Mail | — | Scheduled email reminders |
-| Springdoc OpenAPI | 2.8.8 | Swagger UI auto-generation |
-| JUnit 5 + Mockito | — | Unit and integration tests |
+| Springdoc OpenAPI | 2.1.0 | Swagger UI auto-generation |
+| JUnit 5 + Mockito + H2 | — | Unit and integration tests (H2 = in-memory test database) |
 | Maven | 3.x | Build tool |
 
 ### Frontend
 | Technology | Version | Purpose |
 |---|---|---|
-| Next.js | 14.2.30 | App Router, SSR, file-based routing |
+| Next.js | 14.2.35 | App Router, SSR, file-based routing |
 | React | 18 | Component model |
 | TailwindCSS | 3.4 | Utility-first styling |
-| Axios | 1.10 | HTTP client with interceptors |
-| Radix UI (9 pkgs) | various | Accessible headless UI components |
+| Axios | 1.20 | HTTP client with interceptors |
+| @stomp/stompjs | 7.3 | STOMP client for live updates |
+| cmdk | 1.1 | ⌘K command palette |
+| Radix UI (10 pkgs) | various | Accessible headless UI components |
 | shadcn/ui | — | Pre-built component library over Radix |
 | @dnd-kit | 6/10/3 | Drag-and-drop Kanban board |
 | Recharts | 3.1 | Analytics charts |
@@ -103,19 +113,20 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Browser                                  │
 │                   Next.js 14 App Router                         │
-│              (React 18 · TailwindCSS · Axios)                   │
+│        (React 18 · TailwindCSS · Axios · STOMP client)          │
 │                       Port 3000                                 │
-└───────────────────────────┬─────────────────────────────────────┘
-                            │  HTTP/JSON
-                            │  Authorization: Bearer <jwt>
-                            ▼
+└───────────────────────────┬───────────────────┬─────────────────┘
+                            │ HTTP/JSON         │ WebSocket (STOMP)
+                            │ Bearer <jwt>      │ JWT on CONNECT, /ws
+                            ▼                   ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Spring Boot 3.5.3                            │
-│          JwtAuthFilter → Controller → Service → Repository      │
+│   REST:  JwtAuthFilter → Controller → Service → Repository      │
+│   Live:  STOMP interceptor → /topic/project/{id}/tasks          │
 │                       Port 6060                                 │
 │              Swagger UI: /swagger-ui.html                       │
 └───────────────────────────┬─────────────────────────────────────┘
-                            │  JDBC / JPA
+                            │  JDBC / JPA (schema owned by Flyway in production)
                             ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                    MySQL 8.0                                    │
@@ -128,8 +139,9 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 1. Axios request interceptor attaches `Authorization: Bearer <token>` from localStorage
 2. Spring's `JwtAuthFilter` validates the token on every request
 3. Controller extracts the authenticated user via `@AuthenticationPrincipal`
-4. Service layer enforces authorization rules (owner-only, member-only, author-only)
+4. Service layer enforces authorization through one helper, `ProjectAccessService` (owner / manager / member checks; a non-member gets 404, a member without the right gets 403)
 5. Response interceptor auto-redirects to `/login` on any 401
+6. After a task is created, updated or deleted, the server also pushes a small event to `/topic/project/{id}/tasks` (live board) and saves an activity-log row
 
 ---
 
@@ -139,24 +151,27 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 TaskForge/
 ├── backend/                          Spring Boot REST API
 │   ├── src/main/java/.../
-│   │   ├── controller/               6 controllers, 18 endpoints
+│   │   ├── controller/               9 controllers, 26 endpoints
 │   │   ├── service/                  Business logic + authorization
 │   │   ├── repository/               Spring Data JPA repositories
-│   │   ├── entity/                   JPA entities (User, Project, Task, Comment, ProjectMember)
+│   │   ├── entity/                   JPA entities (User, Project, Task, Comment, ProjectMember, ActivityLog)
 │   │   ├── dto/                      Request/Response DTOs
-│   │   ├── security/                 JWT filter, JwtUtil, UserDetailsService
+│   │   ├── security/                 JWT filter, JwtUtil, UserDetailsService, WebSocket (STOMP) interceptor
 │   │   ├── exception/                Global exception handler
-│   │   └── config/                   SecurityConfig, MailConfig, SwaggerConfig
+│   │   └── config/                   SecurityConfig, WebSocketConfig, MailConfig, SwaggerConfig, DemoDataSeeder
+│   ├── src/main/resources/db/migration/   Flyway migrations V1–V5
+│   ├── perf/                         Dev-only: data seeding + index measurement scripts and results
 │   ├── src/test/                     25 test classes (unit + integration)
 │   ├── Dockerfile
 │   └── pom.xml
 │
 ├── frontend/                         Next.js 14 App Router
 │   ├── src/
-│   │   ├── app/                      6 routes: /, /login, /register, /dashboard, /projects, /my-tasks
-│   │   ├── components/               10 feature components + 15 shadcn/ui components
+│   │   ├── app/                      9 routes + 404: /, /login, /register, /dashboard, /projects,
+│   │   │                             /projects/[id], /my-tasks, /profile, /settings
+│   │   ├── components/               13 feature components + 17 shadcn/ui components
 │   │   ├── contexts/AuthContext.js   Global auth state
-│   │   └── services/api.js           Axios instance + 26 API functions
+│   │   └── services/api.js           Axios instance + 25 API functions
 │   ├── src/__tests__/                5 test suites, 57 tests
 │   ├── Dockerfile
 │   └── package.json
@@ -260,6 +275,16 @@ http://localhost:6060/swagger-ui.html
 | DELETE | `/api/project-members/{projectId}/{userId}` | Owner only | Remove a member |
 | GET | `/api/dashboard/{projectId}` | Required | Project analytics |
 | GET | `/api/dashboard/my-dashboard` | Required | Personal task stats |
+| GET | `/api/users/me` | Required | Your profile |
+| PUT | `/api/users/me` | Required | Update your name |
+| GET | `/api/activity/{projectId}` | Owner or member | Last 50 task-change events for a project |
+| GET | `/api/ai/status` | Public | Whether the optional AI features are enabled |
+| POST | `/api/ai/task-description` | Required | Generate a task description from its title (needs `OPENAI_API_KEY`) |
+| GET | `/api/ai/project-summary/{projectId}` | Owner or member | Plain-English project status summary (needs `OPENAI_API_KEY`) |
+
+Plus the WebSocket endpoint `/ws` (STOMP): a JWT is required on connect, and only the owner and members of a project can subscribe to `/topic/project/{id}/tasks`.
+
+Project, task, comment and member endpoints return **404** to someone who is neither owner nor member (the same response as for an id that does not exist), and **403** to a member who lacks the right for the action.
 
 ---
 
@@ -277,7 +302,7 @@ npm run test:coverage
 
 | Suite | Tests | What it covers |
 |---|---|---|
-| `api.test.js` | 20 | All 26 API functions, auth interceptors |
+| `api.test.js` | 20 | API functions, auth interceptors |
 | `CommentSection.test.jsx` | 11 | Field mapping, delete auth, add / remove |
 | `KanbanBoard.test.jsx` | 7 | 4 columns, task placement, PENDING status |
 | `TaskModal.test.jsx` | 12 | Status options, validation, create/edit modes |
