@@ -6,7 +6,6 @@ import com.projectmgmttool.backend.entity.Task;
 import com.projectmgmttool.backend.entity.User;
 import com.projectmgmttool.backend.exception.CustomApiException;
 import com.projectmgmttool.backend.repository.ProjectMemberRepository;
-import com.projectmgmttool.backend.repository.ProjectRepository;
 import com.projectmgmttool.backend.repository.TaskRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,7 +19,7 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     @Autowired
-    private ProjectRepository projectRepository;
+    private ProjectAccessService projectAccessService;
 
     @Autowired
     private TaskRepository taskRepository;
@@ -32,15 +31,7 @@ public class DashboardService {
     private ProjectMemberRepository projectMemberRepository;
 
     public DashboardResponse getDashboardData(UUID projectId, String userEmail) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomApiException("Project not found", 404));
-
-        boolean isOwner = project.getOwner().getEmail().equals(userEmail);
-        boolean isMember = projectMemberRepository.existsByProjectIdAndUserEmail(projectId, userEmail);
-
-        if (!isOwner && !isMember) {
-            throw new CustomApiException("You are not authorized to view this project's dashboard", 403);
-        }
+        Project project = projectAccessService.requireMember(projectId, userEmail);
 
         List<Task> tasks = taskRepository.findByProjectId(project.getId());
         return buildResponse(tasks, projectMemberRepository.findByProjectId(projectId).size() + 1);
