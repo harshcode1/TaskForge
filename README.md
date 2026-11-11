@@ -31,7 +31,7 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 
 ### Project Management
 - Create, edit, and delete projects
-- Invite team members with role-based access (Admin / Manager / Member)
+- Invite team members as Manager or Member; the project's creator is its owner
 - Per-project Kanban board, analytics, and member directory
 - Project completion analytics with charts
 
@@ -55,7 +55,7 @@ Built as a monorepo with a **Spring Boot REST API** (backend) and a **Next.js Ap
 - REST API with 18 endpoints, documented via **Swagger UI**
 - JWT authentication — stateless, secure, 24-hour token expiry
 - 57 frontend unit tests (Jest + React Testing Library)
-- 12 backend test files (JUnit 5 + Mockito)
+- 183 backend tests (JUnit 5 + Mockito, plus integration tests that call the real API with real JWTs on an in-memory H2 database)
 - One-command Docker Compose setup
 - Dark / Light mode with system preference detection
 
@@ -147,7 +147,7 @@ TaskForge/
 │   │   ├── security/                 JWT filter, JwtUtil, UserDetailsService
 │   │   ├── exception/                Global exception handler
 │   │   └── config/                   SecurityConfig, MailConfig, SwaggerConfig
-│   ├── src/test/                     12 test files (unit + integration)
+│   ├── src/test/                     25 test classes (unit + integration)
 │   ├── Dockerfile
 │   └── pom.xml
 │
@@ -250,13 +250,14 @@ http://localhost:6060/swagger-ui.html
 | GET | `/api/tasks/project/{id}` | Required | Tasks for a project |
 | GET | `/api/tasks` | Required | My assigned tasks |
 | POST | `/api/tasks` | Required | Create a task |
-| PUT | `/api/tasks/{id}` | Owner/Manager | Update task |
-| DELETE | `/api/tasks/{id}` | Owner/Manager | Delete task |
+| PUT | `/api/tasks/{id}` | Owner/Manager/Member | Update task |
+| DELETE | `/api/tasks/{id}` | Owner/Manager | Delete task (a plain member gets 403) |
 | GET | `/api/comments/task/{id}` | Required | Comments on a task |
 | POST | `/api/comments/add` | Required | Add a comment |
 | DELETE | `/api/comments/{id}` | Author only | Delete a comment |
 | POST | `/api/project-members/invite` | Owner only | Invite a member |
 | GET | `/api/project-members/{id}` | Required | Project members list |
+| DELETE | `/api/project-members/{projectId}/{userId}` | Owner only | Remove a member |
 | GET | `/api/dashboard/{projectId}` | Required | Project analytics |
 | GET | `/api/dashboard/my-dashboard` | Required | Personal task stats |
 
@@ -282,7 +283,7 @@ npm run test:coverage
 | `TaskModal.test.jsx` | 12 | Status options, validation, create/edit modes |
 | `ProjectsPage.test.jsx` | 7 | Edit dialog, API call, local state update |
 
-### Backend — 12 test files
+### Backend — 183 tests (no database needed; integration tests use in-memory H2)
 ```bash
 cd backend
 ./mvnw test
@@ -290,8 +291,8 @@ cd backend
 
 | Layer | Files | What it covers |
 |---|---|---|
-| Service (unit) | 6 files | Business logic, authorization rules, edge cases |
-| Controller (integration) | 6 files | HTTP layer, auth, 401 enforcement |
+| Service + security (unit) | 8 files | Business logic, access rules (`ProjectAccessService`), STOMP interceptor |
+| Controller / WebSocket / config (integration) | 17 files | Real JWTs through the real security chain: owner vs member vs non-member for every project/task endpoint, live-update subscription, registration, seeder flag |
 
 ---
 
@@ -306,7 +307,8 @@ Task ◄──────────────── belongs to ────
   │
   └── has many ──► Comment ◄── authored by ── User
 
-ProjectMember: User ↔ Project  (role: ADMIN | MANAGER | MEMBER)
+ProjectMember: User ↔ Project  (role: MANAGER | MEMBER, unique per user and project;
+               the owner is Project.owner, not a row here)
 TaskStatus:    TODO | IN_PROGRESS | PENDING | DONE
 Priority:      LOW | MEDIUM | HIGH
 ```
@@ -322,6 +324,7 @@ Copy `.env.example` to `.env` and configure:
 | `DB_USERNAME` | Yes | MySQL username |
 | `DB_PASSWORD` | Yes | MySQL password |
 | `DB_ROOT_PASSWORD` | Docker only | MySQL root password |
+| `APP_SEED_DEMO_DATA` | No | `true` creates the demo accounts and sample data (default `false`; `docker-compose.yml` turns it on) |
 | `JWT_SECRET` | Yes | Secret key for JWT signing (min 32 chars) |
 | `JWT_EXPIRATION` | No | Token expiry in ms (default: 86400000 = 24h) |
 | `MAIL_HOST` | No | SMTP host (default: smtp.gmail.com) |
@@ -337,9 +340,48 @@ Copy `.env.example` to `.env` and configure:
 - **Stateless JWT auth** — No server-side sessions; tokens stored client-side with 24h expiry and auto-redirect on 401
 - **Optimistic UI** — Comments and project edits update the UI before the server confirms, then reconcile on error
 - **Parallel data fetching** — Dashboard loads projects, personal stats, and tasks in a single `Promise.all()` — not a sequential loop
-- **Role-based authorization** — Enforced at the service layer (not just controller): owner-only for project edits, author-only for comment deletes, manager+ for task edits
+- **Project-level authorization** — Enforced at the service layer in one place (`ProjectAccessService`): owner-only for project edits and member management, owner-or-manager for task deletes, author-only for comment deletes, any member for everything else. See *Technical Decisions* below
 
 ---
+
+## Technical Decisions
+
+**Why JWT.** The API is stateless: there is no session store, and the frontend just sends `Authorization: Bearer <token>`. Tokens are HS256-signed, carry the email as subject plus `role` and `userId` claims, and expire after `JWT_EXPIRATION` (default 24 h). The trade-off is that a token cannot be revoked server-side: logging out only deletes it in the browser, so a stolen token works until it expires.
+
+**Why STOMP over WebSocket.** The board should update when someone else changes a task. STOMP gives topics and subscriptions on top of a raw WebSocket, and Spring's built-in in-memory broker needs no extra infrastructure. The channel is broadcast-only: after a REST call succeeds, the server publishes a small event (`CREATED`/`UPDATED`/`DELETED`, task id and title, project id, who did it) to `/topic/project/{id}/tasks`, and other open boards refetch. The socket is secured by `StompAuthChannelInterceptor`: CONNECT must carry the JWT in the STOMP `Authorization` header (a browser cannot set headers on the WebSocket handshake itself, so `/ws` stays open at the HTTP level), SUBSCRIBE is allowed only to the topic of a project the user owns or belongs to, and clients may not SEND to `/topic/**` (otherwise anyone could forge events). Trade-off: the broker is in memory, so this works on a single backend instance; running several would need an external broker.
+
+**Why Flyway.** Schema changes are versioned SQL instead of whatever Hibernate decides: `V1` baseline (captured from the Hibernate-generated schema), `V2` activity log, `V3` unique `(project_id, user_id)` on `project_members`, `V4` task index. The `prod` profile runs Flyway and sets `ddl-auto=validate`; `dev` uses `ddl-auto=update` with Flyway off; integration tests use H2 with `create-drop`. Trade-off: the migrations are MySQL SQL, so the H2 tests do not run them. They are checked by applying them to a real MySQL.
+
+**Why membership is checked in the service layer.** The rule lives in one class, `ProjectAccessService` (`requireMember`, `requireManagerOrOwner`, `requireOwner`), and every service that touches a project, task or comment calls it. Endpoints that only take a task or comment id load it, find its project, then check. Doing it in services, not controllers, means the same rule protects REST and the WebSocket interceptor, and it is covered by fast unit tests. The owner is `Project.owner` (not a `project_members` row); `project_members` holds MANAGER and MEMBER only, and the API rejects ADMIN as a project role. The global `User.role` is stored and put in the token's authorities, but no permission decision uses it.
+
+**404 vs 403.** Someone who is neither owner nor member gets **404** with the same body as a project, task or comment that does not exist (`"Not found"`), so ids cannot be probed for existence. A member who lacks the right for an action gets **403** (deleting a task needs owner or manager; updating or deleting a project and managing members need the owner). Trade-off: a user cannot tell "no access" from "gone".
+
+**Registration and the demo seeder.** Registering always creates a MEMBER; the request has no role field, so a body with `"role":"ADMIN"` is ignored. The demo seeder (three accounts with a published password, plus sample data) only exists when `app.seed-demo-data=true`. It defaults to `false`, `docker-compose.yml` turns it on for the live demo, and tests never enable it. Do not enable it on a real deployment.
+
+**Index on `tasks(project_id, status)` (`V4`).** The board loads `GET /api/tasks/project/{id}`, optionally with `?status=`. Hibernate runs it as `select ... from tasks t left join projects p on p.id = t.project_id where p.id = ? [and t.status = ?]`, with no `ORDER BY` and no paging. `tasks.project_id` already had a foreign-key index from `V1`, so the question was whether a composite index adds anything.
+
+How it was measured: MySQL 8.0.46 in Docker on a laptop (Intel Core Ultra 7 155H, 15.6 GB RAM, Windows 11, Docker Desktop with WSL2), default 128 MB InnoDB buffer pool, warm cache. Data from `backend/perf/seed_tasks.sql`: 100,000 tasks in 1,000 projects, with one big project of 25,000 tasks and the rest about 75 each; statuses 40% TODO, 25% IN_PROGRESS, 10% PENDING, 25% DONE. `backend/perf/measure_task_list.py` runs each query 3 warm-up times and then 15 timed times, reading rows examined and server execution time (including sending the rows) from `performance_schema`, plus `EXPLAIN` and `EXPLAIN ANALYZE`. The experiment was run twice (before, after, then the index dropped and re-created for a second before and after) and the table shows both runs as first / second. Raw output is in `backend/perf/results-*.txt`.
+
+| Query | Rows examined, before to after | Server time (median of 15), before to after |
+|---|---|---|
+| A. big project, all tasks (25,000 rows returned) | 25,000 to 25,000 | 49.2 / 45.2 ms to 49.4 / 49.6 ms |
+| B. big project, `status=DONE` (6,250 rows returned) | 25,000 to 6,250 | 33.6 / 33.3 ms to 13.4 / 12.2 ms |
+| C. small project (75 tasks), all tasks | 75 to 75 | 0.43 / 0.45 ms to 0.43 / 0.35 ms |
+| D. small project, `status=DONE` (16 rows returned) | 75 to 16 | 0.39 / 0.36 ms to 0.27 / 0.26 ms |
+
+`EXPLAIN ANALYZE` agrees (median of 7, top node, first round): B went from 30.8 ms to 8.6 ms, and D from 0.24 ms to 0.08 ms.
+
+Result: the index helps only the status-filtered list, and clearly only for a large project: 4x fewer rows examined and about 2.5x less time for query B. It does **not** help the unfiltered list (A, C): the optimizer keeps using the old foreign-key index there, and every examined row is returned anyway. For ordinary small projects the difference (D, about 0.1 ms) is too small to matter. I kept the index because the board does filter by status and a project can grow, but it is a modest win, not a general speed-up. The old foreign-key index is now redundant (this one also serves `project_id` lookups) and was left in place; dropping it is a later cleanup.
+
+## Known Limitations
+
+- **Removed members and their tasks.** Removing a member does not unassign their tasks. They still appear in that person's "My tasks" and personal dashboard, and updating such a task while re-sending the same assignee fails with 400 until someone reassigns it.
+- **No paging or sorting** on the project task list; an unfiltered list for a huge project returns every task.
+- **Demo defaults.** `docker-compose.yml` has a fallback JWT secret and default database passwords, and the demo accounts have a known password. This is for the demo only: set `JWT_SECRET` and `DB_*` in `.env` and leave `APP_SEED_DEMO_DATA` off for anything real.
+- **JWT.** No server-side revocation (see above), and `JwtAuthFilter` still has duplicated and dead code that needs a cleanup.
+- **WebSocket.** The in-memory broker means one backend instance only. With an expired or invalid token the server answers with a STOMP error and the browser client retries every 4 seconds until the REST client logs the user out.
+- **Migrations are not unit-tested.** `V3` and `V4` are MySQL SQL and the automated tests run on H2 without Flyway, so they were checked by applying them to a real MySQL.
+- **Leftovers.** The `project_members.role` column from `V1` still lists `ADMIN` as an allowed value (the application never writes it), and the frontend has no "remove member" button yet (the endpoint exists).
 
 ## Author
 
