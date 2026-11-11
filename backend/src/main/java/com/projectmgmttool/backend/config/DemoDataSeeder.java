@@ -17,6 +17,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -28,7 +29,9 @@ import java.time.LocalDate;
  * straight into a populated instance — no signup friction for a recruiter
  * clicking a live demo link.
  *
- * Runs on every startup in every profile (dev today, prod once deployed) and
+ * Opt-in: it only exists as a bean when app.seed-demo-data=true (default false,
+ * see application.properties). docker-compose.yml turns it on for the live
+ * demo; tests, local dev and any real deployment leave it off. When enabled it
  * is idempotent: if demo-admin@taskforge.dev already exists, it does nothing.
  * That's a deliberate simplification over a "reset demo data" flow — a real
  * multi-tenant demo product would need one, this doesn't; if a demo user
@@ -36,6 +39,7 @@ import java.time.LocalDate;
  * database.
  */
 @Component
+@ConditionalOnProperty(name = "app.seed-demo-data", havingValue = "true")
 public class DemoDataSeeder implements CommandLineRunner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoDataSeeder.class);

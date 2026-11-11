@@ -46,6 +46,9 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      # Creates the demo-*@taskforge.dev accounts used by the landing page's
+      # "Try as ..." buttons. Remove (or set false) for a real deployment.
+      APP_SEED_DEMO_DATA: ${APP_SEED_DEMO_DATA:-true}
     depends_on:
       db:
         condition: service_healthy
