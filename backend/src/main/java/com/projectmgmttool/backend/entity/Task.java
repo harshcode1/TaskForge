@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Entity
-@Table(name = "tasks")
+@Table(name = "tasks", indexes = @Index(name = "idx_tasks_project_status", columnList = "project_id, status"))
 public class Task {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
