@@ -15,5 +15,6 @@ public interface ProjectMemberRepository extends JpaRepository<ProjectMember, Lo
     boolean existsByProjectIdAndUserId(UUID projectId, UUID userId);
     boolean existsByProjectIdAndUserEmail(UUID projectId, String email);
     Optional<ProjectMember> findByProjectIdAndUserEmail(UUID projectId, String email);
+    Optional<ProjectMember> findByProjectIdAndUserId(UUID projectId, UUID userId);
     List<ProjectMember> findByUserEmail(String email);
 }

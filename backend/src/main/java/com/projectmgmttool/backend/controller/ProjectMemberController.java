@@ -55,4 +55,19 @@ public class ProjectMemberController {
         List<ProjectMember> members = memberService.getMembers(projectId, userDetails.getUsername());
         return ResponseEntity.ok(members);
     }
+
+    @Operation(summary = "Remove a member from a project", description = "Owner only. Removes the user's membership; the owner cannot be removed.")
+    @ApiResponses(value = {
+        @ApiResponse(responseCode = "204", description = "Member removed"),
+        @ApiResponse(responseCode = "403", description = "Caller is a member but not the owner"),
+        @ApiResponse(responseCode = "404", description = "Project not found (or not visible to the caller), or the user is not a member")
+    })
+    @DeleteMapping("/{projectId}/{userId}")
+    public ResponseEntity<Void> removeMember(
+            @PathVariable UUID projectId,
+            @PathVariable UUID userId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        memberService.removeMember(projectId, userId, userDetails.getUsername());
+        return ResponseEntity.noContent().build();
+    }
 }
