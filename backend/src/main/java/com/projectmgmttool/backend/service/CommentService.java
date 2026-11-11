@@ -1,7 +1,6 @@
 package com.projectmgmttool.backend.service;
 
 import com.projectmgmttool.backend.entity.Comment;
-import com.projectmgmttool.backend.entity.Project;
 import com.projectmgmttool.backend.entity.Task;
 import com.projectmgmttool.backend.entity.User;
 import com.projectmgmttool.backend.dto.CommentRequest;
@@ -11,7 +10,6 @@ import com.projectmgmttool.backend.repository.TaskRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,9 +27,12 @@ public class CommentService {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private ProjectAccessService projectAccessService;
+
     public Comment addComment(CommentRequest request, String authorEmail) {
-        Task task = taskRepository.findById(request.getTaskId())
-                .orElseThrow(() -> new CustomApiException("Task not found", 404));
+        Task task = findTask(request.getTaskId());
+        projectAccessService.requireMember(task.getProject().getId(), authorEmail);
 
         User user = userRepository.findByEmail(authorEmail)
                 .orElseThrow(() -> new CustomApiException("User not found", 404));
@@ -45,42 +46,30 @@ public class CommentService {
         return commentRepository.save(comment);
     }
 
-    // See ProjectService.getProjectById — same lazy-collection-after-session-close bug.
-    @Transactional(readOnly = true)
     public List<Comment> getCommentsForTask(UUID taskId, String userEmail) {
-        // First check if the task exists
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new CustomApiException("Task not found", 404));
-
-        // Verify user is authorized to view comments (must be a member of the project)
-        Project project = task.getProject();
-        boolean isOwner = project.getOwner().getEmail().equals(userEmail);
-
-        // Check if user is a project member
-        if (!isOwner) {
-            // Only project members can view comments
-            boolean isMember = userRepository.findByEmail(userEmail)
-                    .map(user -> project.getMembers().stream()
-                            .anyMatch(member -> member.getUser().getId().equals(user.getId())))
-                    .orElse(false);
-
-            if (!isMember) {
-                throw new CustomApiException("You are not authorized to view comments for this task", 403);
-            }
-        }
+        Task task = findTask(taskId);
+        projectAccessService.requireMember(task.getProject().getId(), userEmail);
 
         return commentRepository.findByTaskIdOrderByCreatedAtDesc(taskId);
     }
 
     public void deleteComment(UUID commentId, String userEmail) {
+        // A missing comment and a comment in someone else's project give the same 404.
         Comment comment = commentRepository.findById(commentId)
-                .orElseThrow(() -> new CustomApiException("Comment not found", 404));
+                .orElseThrow(ProjectAccessService::notFound);
 
-        // Only the author of the comment can delete it
+        // You must still be in the project (a removed member loses access to their old comments)...
+        projectAccessService.requireMember(comment.getTask().getProject().getId(), userEmail);
+
+        // ...and only the author can delete a comment.
         if (!comment.getAuthor().getEmail().equals(userEmail)) {
             throw new CustomApiException("You are not authorized to delete this comment", 403);
         }
 
         commentRepository.delete(comment);
+    }
+
+    private Task findTask(UUID taskId) {
+        return taskRepository.findById(taskId).orElseThrow(ProjectAccessService::notFound);
     }
 }
