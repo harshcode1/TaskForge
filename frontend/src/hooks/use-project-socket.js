@@ -13,8 +13,8 @@ const WS_URL = API_BASE_URL.replace(/^http/, 'ws').replace(/\/api\/?$/, '') + '/
 /**
  * Subscribes to live task events for one project's board
  * (/topic/project/{projectId}/tasks) for as long as the calling component
- * is mounted. Broadcast-only channel — no auth on the socket itself, see
- * WebSocketConfig's Javadoc for why that's an acceptable trade-off here.
+ * is mounted. Broadcast-only channel. The server requires the JWT on CONNECT
+ * and only lets project members subscribe (see StompAuthChannelInterceptor).
  *
  * `onEvent` is called with the parsed TaskEvent for every message,
  * including ones this same tab caused — the caller decides whether to
@@ -29,10 +29,16 @@ export function useProjectSocket(projectId, onEvent) {
   onEventRef.current = onEvent;
 
   useEffect(() => {
-    if (!projectId) return;
+    // Same token the REST client sends (see api.js). No token means logged
+    // out, so don't open a socket at all — the server would reject it anyway.
+    const token = localStorage.getItem('token');
+    if (!projectId || !token) return;
 
     const client = new Client({
       brokerURL: WS_URL,
+      // The browser WebSocket handshake can't carry headers, so the JWT goes
+      // in the STOMP CONNECT frame, where the server checks it.
+      connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 4000,
       onConnect: () => {
         setConnected(true);
