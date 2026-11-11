@@ -1,7 +1,10 @@
 package com.projectmgmttool.backend.config;
 
+import com.projectmgmttool.backend.security.StompAuthChannelInterceptor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -13,11 +16,12 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
  * refresh. Broadcast-only: the actual mutation always goes through the
  * existing authenticated REST endpoints first (TaskController etc.); this
  * channel just tells other open tabs "something in project X changed, go
- * refetch" — it never carries the task data itself, so there's no new
- * surface here for sensitive data to leak through even without per-message
- * auth on the socket. The topic name is scoped by project id, so only a
- * client that already knows that id (because it legitimately loaded that
- * project over the real API) has any reason to subscribe to it.
+ * refetch" — it never carries the task data itself.
+ *
+ * The socket is authenticated at the STOMP level, not by the HTTP filter
+ * chain: StompAuthChannelInterceptor requires a JWT on CONNECT, only lets a
+ * project's owner and members SUBSCRIBE to that project's topic, and stops
+ * clients from publishing to /topic themselves.
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -26,10 +30,18 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Value("${app.cors.allowed-origins:http://localhost:3000}")
     private String allowedOrigins;
 
+    @Autowired
+    private StompAuthChannelInterceptor stompAuthChannelInterceptor;
+
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
                 .setAllowedOriginPatterns(allowedOrigins.split(","));
+    }
+
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(stompAuthChannelInterceptor);
     }
 
     @Override
