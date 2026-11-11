@@ -40,7 +40,8 @@ public class AuthService {
         user.setName(request.getName());
         user.setEmail(request.getEmail());
         user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(request.getRole() != null ? request.getRole() : Role.MEMBER);
+        // Never taken from the request: every self-registered user is a plain MEMBER.
+        user.setRole(Role.MEMBER);
 
         User savedUser = userRepository.save(user);
         String token = jwtUtil.generateToken(savedUser);

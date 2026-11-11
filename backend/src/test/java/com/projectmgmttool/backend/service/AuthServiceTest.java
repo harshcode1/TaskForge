@@ -11,6 +11,7 @@ import com.projectmgmttool.backend.security.JwtUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -56,12 +57,31 @@ class AuthServiceTest {
     }
 
     @Test
+    void register_newUser_isAlwaysSavedAsMember() {
+        RegisterRequest request = new RegisterRequest();
+        request.setName("New User");
+        request.setEmail("sneaky@example.com");
+        request.setPassword("Password123!");
+
+        when(userRepository.existsByEmail("sneaky@example.com")).thenReturn(false);
+        when(passwordEncoder.encode(any())).thenReturn("encodedPassword");
+        when(userRepository.save(any(User.class))).thenAnswer(invocation -> invocation.getArgument(0, User.class));
+        when(jwtUtil.generateToken(any(User.class))).thenReturn("test-token");
+
+        AuthResponse response = authService.register(request);
+
+        ArgumentCaptor<User> saved = ArgumentCaptor.forClass(User.class);
+        verify(userRepository).save(saved.capture());
+        assertEquals(Role.MEMBER, saved.getValue().getRole());
+        assertEquals(Role.MEMBER, response.getRole());
+    }
+
+    @Test
     void register_newUser_returnsAuthResponse() {
         RegisterRequest request = new RegisterRequest();
         request.setName("Test User");
         request.setEmail("test@example.com");
         request.setPassword("Password123!");
-        request.setRole(Role.MEMBER);
 
         when(userRepository.existsByEmail("test@example.com")).thenReturn(false);
         when(passwordEncoder.encode(any())).thenReturn("encodedPassword");

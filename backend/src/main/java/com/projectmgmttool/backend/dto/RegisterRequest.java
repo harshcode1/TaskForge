@@ -1,7 +1,6 @@
 package com.projectmgmttool.backend.dto;
 
 
-import com.projectmgmttool.backend.entity.enums.Role;
 import jakarta.validation.constraints.*;
 
 public class RegisterRequest {
@@ -21,15 +20,12 @@ public class RegisterRequest {
              message = "Password must contain at least one lowercase letter, one uppercase letter, and one digit")
     private String password;
 
-    private Role role; // Optional - defaults to MEMBER if not provided
-
     public RegisterRequest() {}
 
-    public RegisterRequest(String name, String email, String password, Role role) {
+    public RegisterRequest(String name, String email, String password) {
         this.name = name;
         this.email = email;
         this.password = password;
-        this.role = role;
     }
 
     public String getName() {
@@ -54,13 +50,5 @@ public class RegisterRequest {
 
     public void setPassword(String password) {
         this.password = password;
-    }
-
-    public Role getRole() {
-        return role;
-    }
-
-    public void setRole(Role role) {
-        this.role = role;
     }
 }
