@@ -95,8 +95,9 @@ public class TaskController {
     @GetMapping("/project/{projectId}")
     public ResponseEntity<List<TaskDTO>> getTasks(
             @PathVariable UUID projectId,
-            @RequestParam(required = false) String status) {
-        List<Task> tasks = taskService.getTasksForProject(projectId, Optional.ofNullable(status));
+            @RequestParam(required = false) String status,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        List<Task> tasks = taskService.getTasksForProject(projectId, Optional.ofNullable(status), userDetails.getUsername());
         return ResponseEntity.ok(tasks.stream().map(this::toDTO).collect(Collectors.toList()));
     }
 

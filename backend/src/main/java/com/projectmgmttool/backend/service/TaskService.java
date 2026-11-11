@@ -2,14 +2,11 @@ package com.projectmgmttool.backend.service;
 
 import com.projectmgmttool.backend.dto.TaskRequest;
 import com.projectmgmttool.backend.entity.Project;
-import com.projectmgmttool.backend.entity.ProjectMember;
 import com.projectmgmttool.backend.entity.Task;
 import com.projectmgmttool.backend.entity.User;
-import com.projectmgmttool.backend.entity.enums.Role;
 import com.projectmgmttool.backend.entity.enums.TaskStatus;
 import com.projectmgmttool.backend.exception.CustomApiException;
 import com.projectmgmttool.backend.repository.ProjectMemberRepository;
-import com.projectmgmttool.backend.repository.ProjectRepository;
 import com.projectmgmttool.backend.repository.TaskRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -27,7 +24,7 @@ public class TaskService {
     private TaskRepository taskRepository;
 
     @Autowired
-    private ProjectRepository projectRepository;
+    private ProjectAccessService projectAccessService;
 
     @Autowired
     private ProjectMemberRepository projectMemberRepository;
@@ -39,13 +36,11 @@ public class TaskService {
         if (request.getProjectId() == null) {
             throw new CustomApiException("Project ID is required to create a task", 400);
         }
-        Project project = projectRepository.findById(request.getProjectId())
-                .orElseThrow(() -> new CustomApiException("Project not found", 404));
+        Project project = projectAccessService.requireMember(request.getProjectId(), creatorEmail);
 
         User assignedTo = null;
         if (request.getAssigneeEmail() != null && !request.getAssigneeEmail().isBlank()) {
-            assignedTo = userRepository.findByEmail(request.getAssigneeEmail())
-                    .orElseThrow(() -> new CustomApiException("Assignee not found: " + request.getAssigneeEmail(), 404));
+            assignedTo = findAssignee(request.getAssigneeEmail(), project);
         }
 
         Task task = new Task();
@@ -61,10 +56,12 @@ public class TaskService {
         return taskRepository.save(task);
     }
 
-    public List<Task> getTasksForProject(UUID projectId, Optional<String> statusOpt) {
+    public List<Task> getTasksForProject(UUID projectId, Optional<String> statusOpt, String userEmail) {
+        projectAccessService.requireMember(projectId, userEmail);
+
         String status = statusOpt.orElse(null);
         if (status != null && !status.isEmpty()) {
-            return taskRepository.findByProjectIdAndStatus(projectId, status);
+            return taskRepository.findByProjectIdAndStatus(projectId, parseStatus(status));
         }
         return taskRepository.findByProjectId(projectId);
     }
@@ -74,19 +71,8 @@ public class TaskService {
     }
 
     public Task updateTask(UUID taskId, TaskRequest request, String userEmail) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new CustomApiException("Task not found", 404));
-
-        User requestingUser = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new CustomApiException("User not found", 404));
-
-        boolean isOwner = task.getProject().getOwner().getId().equals(requestingUser.getId());
-        boolean isMember = projectMemberRepository
-                .findByProjectIdAndUserEmail(task.getProject().getId(), userEmail).isPresent();
-
-        if (!isOwner && !isMember) {
-            throw new CustomApiException("You are not authorized to update this task", 403);
-        }
+        Task task = findTask(taskId);
+        Project project = projectAccessService.requireMember(task.getProject().getId(), userEmail);
 
         task.setTitle(request.getTitle());
         task.setDescription(request.getDescription());
@@ -97,9 +83,7 @@ public class TaskService {
         // Update assignee
         if (request.getAssigneeEmail() != null && !request.getAssigneeEmail().isBlank()
                 && !request.getAssigneeEmail().equals("UNASSIGNED")) {
-            User newAssignee = userRepository.findByEmail(request.getAssigneeEmail())
-                    .orElseThrow(() -> new CustomApiException("Assignee not found: " + request.getAssigneeEmail(), 404));
-            task.setAssignee(newAssignee);
+            task.setAssignee(findAssignee(request.getAssigneeEmail(), project));
         } else {
             task.setAssignee(null);
         }
@@ -108,25 +92,36 @@ public class TaskService {
     }
 
     public Task deleteTask(UUID taskId, String userEmail) {
-        Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new CustomApiException("Task not found", 404));
-
-        User requestingUser = userRepository.findByEmail(userEmail)
-                .orElseThrow(() -> new CustomApiException("User not found", 404));
-
-        Project project = task.getProject();
-        boolean isOwner = project.getOwner().getId().equals(requestingUser.getId());
-
-        Optional<ProjectMember> memberOpt = projectMemberRepository
-                .findByProjectIdAndUserEmail(project.getId(), userEmail);
-
-        boolean isManager = memberOpt.isPresent() && memberOpt.get().getRole() == Role.MANAGER;
-
-        if (!isOwner && !isManager) {
-            throw new CustomApiException("You do not have permission to delete this task", 403);
-        }
+        Task task = findTask(taskId);
+        projectAccessService.requireManagerOrOwner(task.getProject().getId(), userEmail);
 
         taskRepository.delete(task);
         return task;
+    }
+
+    private TaskStatus parseStatus(String status) {
+        try {
+            return TaskStatus.valueOf(status);
+        } catch (IllegalArgumentException e) {
+            throw new CustomApiException("Invalid status: " + status, 400);
+        }
+    }
+
+    // A missing task and a task in someone else's project give the same 404.
+    private Task findTask(UUID taskId) {
+        return taskRepository.findById(taskId).orElseThrow(ProjectAccessService::notFound);
+    }
+
+    // Tasks can only be assigned to people who are in the project (owner or member).
+    private User findAssignee(String assigneeEmail, Project project) {
+        User assignee = userRepository.findByEmail(assigneeEmail)
+                .orElseThrow(() -> new CustomApiException("Assignee not found: " + assigneeEmail, 404));
+
+        boolean isOwner = project.getOwner().getId().equals(assignee.getId());
+        boolean isMember = projectMemberRepository.existsByProjectIdAndUserId(project.getId(), assignee.getId());
+        if (!isOwner && !isMember) {
+            throw new CustomApiException("Assignee must be a member of this project", 400);
+        }
+        return assignee;
     }
 }
