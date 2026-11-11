@@ -7,7 +7,6 @@ import com.projectmgmttool.backend.repository.ProjectRepository;
 import com.projectmgmttool.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -21,6 +20,9 @@ public class ProjectService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ProjectAccessService projectAccessService;
 
     public Project createProject(String name, String description, String ownerEmail) {
         User owner = userRepository.findByEmail(ownerEmail)
@@ -42,34 +44,12 @@ public class ProjectService {
         return projectRepository.findAllProjectsVisibleToUser(user.getId());
     }
 
-    // @Transactional is required here: open-in-view is off, so the session from
-    // findById() closes as soon as it returns. Without this, accessing the lazy
-    // `members` collection below throws LazyInitializationException — this was a
-    // live 500 on GET /api/projects/{id} until this was added (see also the same
-    // pattern in CommentService.getCommentsForTask).
-    @Transactional(readOnly = true)
     public Project getProjectById(UUID projectId, String requesterEmail) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomApiException("Project not found", 404));
-
-        boolean isOwner = project.getOwner().getEmail().equals(requesterEmail);
-        boolean isMember = project.getMembers().stream()
-                .anyMatch(m -> m.getUser().getEmail().equals(requesterEmail));
-
-        if (!isOwner && !isMember) {
-            throw new CustomApiException("Access denied - you don't have permission to view this project", 403);
-        }
-
-        return project;
+        return projectAccessService.requireMember(projectId, requesterEmail);
     }
 
     public Project updateProject(UUID projectId, String name, String description, String requesterEmail) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomApiException("Project not found", 404));
-
-        if (!project.getOwner().getEmail().equals(requesterEmail)) {
-            throw new CustomApiException("Only the owner can update the project", 403);
-        }
+        Project project = projectAccessService.requireOwner(projectId, requesterEmail);
 
         project.setName(name);
         project.setDescription(description);
@@ -77,12 +57,7 @@ public class ProjectService {
     }
 
     public void deleteProject(UUID projectId, String requesterEmail) {
-        Project project = projectRepository.findById(projectId)
-                .orElseThrow(() -> new CustomApiException("Project not found", 404));
-
-        if (!project.getOwner().getEmail().equals(requesterEmail)) {
-            throw new CustomApiException("Only the owner can delete the project", 403);
-        }
+        Project project = projectAccessService.requireOwner(projectId, requesterEmail);
 
         projectRepository.delete(project);
     }
