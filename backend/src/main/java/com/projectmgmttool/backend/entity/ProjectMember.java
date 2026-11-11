@@ -7,7 +7,8 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "project_members")
+@Table(name = "project_members",
+        uniqueConstraints = @UniqueConstraint(name = "uk_project_members_project_user", columnNames = {"project_id", "user_id"}))
 public class ProjectMember {
 
     @Id
@@ -24,7 +25,7 @@ public class ProjectMember {
     private LocalDateTime joinedAt = LocalDateTime.now();
 
     @Enumerated(EnumType.STRING)
-    private Role role;  // Project-specific role (e.g. MEMBER or MANAGER)
+    private Role role;  // Project-specific role: MANAGER or MEMBER (the owner is Project.owner, not a row here)
 
     // Constructors
     public ProjectMember() {}
