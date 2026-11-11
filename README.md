@@ -278,7 +278,7 @@ npm run test:coverage
 | Suite | Tests | What it covers |
 |---|---|---|
 | `api.test.js` | 20 | All 26 API functions, auth interceptors |
-| `CommentSection.test.jsx` | 11 | Field mapping, delete auth, optimistic UI |
+| `CommentSection.test.jsx` | 11 | Field mapping, delete auth, add / remove |
 | `KanbanBoard.test.jsx` | 7 | 4 columns, task placement, PENDING status |
 | `TaskModal.test.jsx` | 12 | Status options, validation, create/edit modes |
 | `ProjectsPage.test.jsx` | 7 | Edit dialog, API call, local state update |
@@ -334,19 +334,11 @@ Copy `.env.example` to `.env` and configure:
 
 ---
 
-## Key Design Decisions
-
-- **Monorepo** — Frontend and backend in one repo simplifies cloning, CI/CD, and environment management
-- **Stateless JWT auth** — No server-side sessions; tokens stored client-side with 24h expiry and auto-redirect on 401
-- **Optimistic UI** — Comments and project edits update the UI before the server confirms, then reconcile on error
-- **Parallel data fetching** — Dashboard loads projects, personal stats, and tasks in a single `Promise.all()` — not a sequential loop
-- **Project-level authorization** — Enforced at the service layer in one place (`ProjectAccessService`): owner-only for project edits and member management, owner-or-manager for task deletes, author-only for comment deletes, any member for everything else. See *Technical Decisions* below
-
----
-
 ## Technical Decisions
 
-**Why JWT.** The API is stateless: there is no session store, and the frontend just sends `Authorization: Bearer <token>`. Tokens are HS256-signed, carry the email as subject plus `role` and `userId` claims, and expire after `JWT_EXPIRATION` (default 24 h). The trade-off is that a token cannot be revoked server-side: logging out only deletes it in the browser, so a stolen token works until it expires.
+**Monorepo.** Frontend and backend live in one repository, so one clone, one `docker-compose.yml` and one `.env` cover the whole app.
+
+**Why JWT.** The API is stateless: there is no session store, and the frontend just sends `Authorization: Bearer <token>`. Tokens are HS256-signed, carry the email as subject plus `role` and `userId` claims, and expire after `JWT_EXPIRATION` (default 24 h). The frontend keeps the token in `localStorage`, an Axios interceptor attaches it to every request, and any 401 clears it and redirects to `/login`. The trade-off is that a token cannot be revoked server-side: logging out only deletes it in the browser, so a stolen token works until it expires.
 
 **Why STOMP over WebSocket.** The board should update when someone else changes a task. STOMP gives topics and subscriptions on top of a raw WebSocket, and Spring's built-in in-memory broker needs no extra infrastructure. The channel is broadcast-only: after a REST call succeeds, the server publishes a small event (`CREATED`/`UPDATED`/`DELETED`, task id and title, project id, who did it) to `/topic/project/{id}/tasks`, and other open boards refetch. The socket is secured by `StompAuthChannelInterceptor`: CONNECT must carry the JWT in the STOMP `Authorization` header (a browser cannot set headers on the WebSocket handshake itself, so `/ws` stays open at the HTTP level), SUBSCRIBE is allowed only to the topic of a project the user owns or belongs to, and clients may not SEND to `/topic/**` (otherwise anyone could forge events). Trade-off: the broker is in memory, so this works on a single backend instance; running several would need an external broker.
 
@@ -354,9 +346,11 @@ Copy `.env.example` to `.env` and configure:
 
 **Why membership is checked in the service layer.** The rule lives in one class, `ProjectAccessService` (`requireMember`, `requireManagerOrOwner`, `requireOwner`), and every service that touches a project, task or comment calls it. Endpoints that only take a task or comment id load it, find its project, then check. Doing it in services, not controllers, means the same rule protects REST and the WebSocket interceptor, and it is covered by fast unit tests. The owner is `Project.owner` (not a `project_members` row); `project_members` holds MANAGER and MEMBER only, and the API rejects ADMIN as a project role. The global `User.role` is stored and put in the token's authorities, but no permission decision uses it.
 
-**404 vs 403.** Someone who is neither owner nor member gets **404** with the same body as a project, task or comment that does not exist (`"Not found"`), so ids cannot be probed for existence. A member who lacks the right for an action gets **403** (deleting a task needs owner or manager; updating or deleting a project and managing members need the owner). Trade-off: a user cannot tell "no access" from "gone".
+**404 vs 403.** Someone who is neither owner nor member gets **404** with the same body as a project, task or comment that does not exist (`"Not found"`), so ids cannot be probed for existence. A member who lacks the right for an action gets **403** (deleting a task needs owner or manager; updating or deleting a project and managing members need the owner; deleting a comment is author-only). Trade-off: a user cannot tell "no access" from "gone".
 
 **Registration and the demo seeder.** Registering always creates a MEMBER; the request has no role field, so a body with `"role":"ADMIN"` is ignored. The demo seeder (three accounts with a published password, plus sample data) only exists when `app.seed-demo-data=true`. It defaults to `false`, `docker-compose.yml` turns it on for the live demo, and tests never enable it. Do not enable it on a real deployment.
+
+**Parallel data fetching.** The dashboard loads projects, personal stats and my tasks in a single `Promise.all()` instead of sequential requests.
 
 **Index on `tasks(project_id, status)` (`V4`).** The board loads `GET /api/tasks/project/{id}`, optionally with `?status=`. Hibernate runs it as `select ... from tasks t left join projects p on p.id = t.project_id where p.id = ? [and t.status = ?]`, with no `ORDER BY` and no paging. `tasks.project_id` already had a foreign-key index from `V1`, so the question was whether a composite index adds anything.
 
